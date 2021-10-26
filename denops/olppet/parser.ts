@@ -55,7 +55,7 @@ export class SnipMateParser extends Parser {
         const trigger = head.match(/(?<=^snippet\s+)\S+/) as RegExpMatchArray;
         const snippetLine: SnippetLine[] = body.filter(line => !line.startsWith('#'))
                                                .map(line => this.parseLine(line));
-        const description = head.match(/(?<=^snippet\s+\S+\s+).*$/)
+        const description = head.match(/(?<=^snippet\s+\S+\s+").*(?=")/);
         return new Snippet(trigger[0], snippetLine, description ? description[0] : null);
     }
 

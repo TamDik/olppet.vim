@@ -147,8 +147,18 @@ export class SnippetEngine {
         console.log('jumpBackward');
     }
 
-    public async getAllTargets(denops: Denops): Promise<string[]> {
+    public async getCandidates(denops: Denops): Promise<{word: string, menu?: string}[]> {
         await this.loadSnippetsIfNeeds(denops);
-        return Array.from(this.snippets.keys());
+        const candidates = [];
+        for (const [trigger, snippet] of this.snippets) {
+            let candidate;
+            if (snippet.description) {
+                candidate = {word: trigger, menu: snippet.description};
+            } else {
+                candidate = {word: trigger};
+            }
+            candidates.push(candidate);
+        }
+        return candidates;
     }
 }

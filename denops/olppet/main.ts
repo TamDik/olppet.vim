@@ -21,8 +21,8 @@ export async function main(denops: Denops): Promise<void> {
             unknownutil.ensureString(key);
             await snippetEngine.jumpBackward(denops, key);
         },
-        getCandidates(): Promise<string[]> {
-            return snippetEngine.getAllTargets(denops);
+        getCandidates(): Promise<{word: string, menu?: string}[]> {
+            return snippetEngine.getCandidates(denops);
         }
     };
     await denops.cmd('doautocmd <nomodeline> User OlppetReady');

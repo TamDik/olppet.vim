@@ -1,16 +1,60 @@
+import { expandGlob } from './deps.ts';
 import { Snippet, SnippetLine, SnippetToken, IndentToken, TabStopToken, TextToken, MirrorToken } from './snippet.ts';
 
+
 abstract class Parser {
-    public parse(text: string): Snippet[] {
-        const snippetBlocks = this.splitBlock(text);
-        return snippetBlocks.map(snippetBlock => this.parseBlock(snippetBlock));
+    public constructor(protected readonly filepath: string) {
     }
-    protected abstract splitBlock(text: string): string[];
-    protected abstract parseBlock(snippetBlock: string): Snippet;
+
+    public async parse(): Promise<Snippet[]> {
+        const text = await Deno.readTextFile(this.filepath);
+        return this.parseText(text);
+    }
+
+    protected abstract parseText(text: string): Promise<Snippet[]>;
 }
 
 
 export class SnipMateParser extends Parser {
+    private extends: string[] = [];
+    public constructor(filepath: string, private readonly directory: string) {
+        super(filepath);
+    }
+
+
+    public static async fetchSnippetsFiles(directory: string, scope: string): Promise<string[]> {
+        const globs: string[] = [
+            `${directory}/snippets/${scope}.snippets`,
+            `${directory}/snippets/${scope}_*.snippets`,
+            `${directory}/snippets/${scope}/*.snippets`,
+        ];
+
+        const snippetsFilepath = [];
+        for (const glob of globs) {
+            for await (const filepath of expandGlob(glob)) {
+                if (filepath.isFile) {
+                    snippetsFilepath.push(filepath.path);
+                }
+            }
+        }
+        return snippetsFilepath;
+    }
+
+    public async parseText(text: string): Promise<Snippet[]> {
+        const snippetBlocks = this.splitBlock(text);
+        const snippets = snippetBlocks.map(snippetBlock => this.parseBlock(snippetBlock));
+
+        // extends
+        for (const extend of this.extends) {
+            for (const filepath of await SnipMateParser.fetchSnippetsFiles(this.directory, extend)) {
+                const parser = new SnipMateParser(filepath, this.directory);
+                snippets.push(...await parser.parse());
+            }
+        }
+
+        return snippets;
+    }
+
     protected splitBlock(text: string): string[] {
         const blocks = [];
         let blockLines: string[] = [];
@@ -23,7 +67,7 @@ export class SnipMateParser extends Parser {
                 continue;
             }
             if (line.match(/^\s*extends/)) {
-                console.log('extends:', line);
+                this.extends.push(line.replace(/\s*extends\s*/, ''));
                 continue;
             }
             if (line.match(/^\s*include/)) {

@@ -67,9 +67,8 @@ export class SnippetEngine {
         this.snippets.clear();
         for (const directoryPath of this.snippet_directories) {
             for (const snippetPath of await this.fetchSnippetsFiles(denops, directoryPath)) {
-                const text = await Deno.readTextFile(snippetPath);
-                const parser = new SnipMateParser();
-                const snippets = parser.parse(text);
+                const parser = new SnipMateParser(snippetPath, directoryPath);
+                const snippets = await parser.parse();
                 for (const snippet of snippets) {
                     this.snippets.set(snippet.trigger, snippet);
                 }
@@ -82,21 +81,9 @@ export class SnippetEngine {
             await option.filetype.get(denops),
             await option.syntax.get(denops),
         ]);
-
-        const globs: string[] = [];
-        for (const scope of scopes) {
-            globs.push(`${directory}/snippets/${scope}.snippets`);
-            globs.push(`${directory}/snippets/${scope}_*.snippets`);
-            globs.push(`${directory}/snippets/${scope}/*.snippets`);
-        }
-
         const snippetsFilepath = [];
-        for (const glob of globs) {
-            for await (const filepath of expandGlob(glob)) {
-                if (filepath.isFile) {
-                    snippetsFilepath.push(filepath.path);
-                }
-            }
+        for (const scope of scopes) {
+            snippetsFilepath.push(...await SnipMateParser.fetchSnippetsFiles(directory, scope));
         }
         return snippetsFilepath;
     }

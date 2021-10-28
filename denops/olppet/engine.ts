@@ -104,14 +104,13 @@ export class SnippetEngine {
     public async expand(denops: Denops): Promise<void> {
         await this.loadSnippetsIfNeeds(denops);
         const insertResult = await this.insertSnippet(denops);
-        if (insertResult || this.currentSnippet) {
-            await this.jumpForward(denops);
+        if (insertResult) {
+            await this.moveTo(denops, 'next');
             await denops.call('feedkeys', 'a');
         } else {
             const col: number = await denops.call('col', "'^") as number;
             await denops.call('feedkeys', col === 1 ? 'i' : 'a');
         }
-
     }
 
     private async insertSnippet(denops: Denops): Promise<boolean> {
@@ -145,10 +144,25 @@ export class SnippetEngine {
     }
 
     public async jumpForward(denops: Denops): Promise<void> {
+        await this.moveTo(denops, 'next');
+        await denops.call('feedkeys', 'a');
+    }
+
+    public async jumpBackward(denops: Denops): Promise<void> {
+        await this.moveTo(denops, 'prev');
+        await denops.call('feedkeys', 'a');
+    }
+
+    private async moveTo(denops: Denops, tabstop: 'next' | 'prev'): Promise<void> {
         if (!this.currentSnippet) {
             return;
         }
-        const position = this.currentSnippet.getNextTabstopPosition();
+        let position;
+        if (tabstop === 'next') {
+            position = this.currentSnippet.getNextTabStopPosition();
+        } else {
+            position = this.currentSnippet.getPrevTabStopPosition();
+        }
         if (!position) {
             return;
         }
@@ -156,16 +170,8 @@ export class SnippetEngine {
         await denops.call('cursor', lnum, col);
     }
 
-    public async jumpBackward(denops: Denops): Promise<void> {
-        if (!this.currentSnippet) {
-            return;
-        }
-        const position = this.currentSnippet.getPrevTabstopPosition();
-        if (!position) {
-            return;
-        }
-        const {lnum, col} = position;
-        await denops.call('cursor', lnum, col);
+    public leaveInsertMode(): void {
+        this.currentSnippet = null;
     }
 
     public async getCandidates(denops: Denops): Promise<{word: string, menu?: string}[]> {

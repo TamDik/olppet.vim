@@ -1,78 +1,107 @@
 export class Snippet {
-    private currentTabstop: TabStopToken | null = null;
-    private tabstops;
+    private walked = false;
+    private currentTabStop: TabStopToken | null = null;
+    private readonly tabStops: TabStopToken[][] = [];
     public constructor(public readonly trigger: string,
                        private readonly lines: SnippetLine[],
                        public readonly description: string|null,
                        private top_: number=0,
                        private left: number=0) {
-        this.tabstops = this.lines.map(line => line.getTabstops())
     }
 
-    public getNextTabstopPosition(): {lnum: number, col: number} | null {
-        const nextTabstop = this.getNextTabstop();
-        if (!nextTabstop) {
+    private walkTokens(): void {
+        if (this.walked) {
+            return;
+        }
+        this.walked = true;
+
+        function isTabStop(token: SnippetToken): token is TabStopToken {
+            return token instanceof TabStopToken;
+        }
+        function isMirror(token: SnippetToken): token is MirrorToken {
+            return token instanceof MirrorToken;
+        }
+        const mirrorTokens: MirrorToken[] = [];
+        for (const line of this.lines) {
+            this.tabStops.push(line.getTokens(isTabStop));
+            mirrorTokens.push(...line.getTokens(isMirror));
+        }
+
+        for (const tabStop of this.tabStops.flat()) {
+            for (const mirrorToken of mirrorTokens) {
+                if (mirrorToken.tokenId === tabStop.tokenId) {
+                    mirrorToken.setTargetTabStopToken(tabStop);
+                }
+            }
+        }
+    }
+
+    public getNextTabStopPosition(): {lnum: number, col: number} | null {
+        this.walkTokens();
+        const nextTabStop = this.getNextTabStop();
+        if (!nextTabStop) {
             return null;
         }
-        const [line, tabstop] = nextTabstop;
-        this.currentTabstop = tabstop;
+        const [line, tabStop] = nextTabStop;
+        this.currentTabStop = tabStop;
         const lnum = this.top_ + line;
-        const col = this.left + this.getCursorCol(tabstop, line);
+        const col = this.left + this.getCursorCol(tabStop, line);
         return {lnum, col};
     }
 
-    public getPrevTabstopPosition(): {lnum: number, col: number} | null {
-        const prevTabstop = this.getPrevTabstop();
-        if (!prevTabstop) {
+    public getPrevTabStopPosition(): {lnum: number, col: number} | null {
+        this.walkTokens();
+        const prevTabStop = this.getPrevTabStop();
+        if (!prevTabStop) {
             return null;
         }
-        const [line, tabstop] = prevTabstop;
-        this.currentTabstop = tabstop;
-        return {lnum: this.top_ + line, col: this.getCursorCol(tabstop, line)};
+        const [line, tabStop] = prevTabStop;
+        this.currentTabStop = tabStop;
+        return {lnum: this.top_ + line, col: this.getCursorCol(tabStop, line)};
     }
 
-    private getNextTabstop(): [number, TabStopToken] | null {
-        return this.getAfterTheCurrentTabstop(this.tabstops);
+    private getNextTabStop(): [number, TabStopToken] | null {
+        return this.getAfterTheCurrentTabStop(this.tabStops);
     }
 
-    private getPrevTabstop(): [number, TabStopToken] | null {
+    private getPrevTabStop(): [number, TabStopToken] | null {
         const reversed: TabStopToken[][] = [];
-        for (const tabstops of [...this.tabstops].reverse()) {
-            reversed.push([...tabstops].reverse());
+        for (const tabStops of [...this.tabStops].reverse()) {
+            reversed.push([...tabStops].reverse());
         }
-        const result = this.getAfterTheCurrentTabstop(reversed);
+        const result = this.getAfterTheCurrentTabStop(reversed);
         if (!result) {
             return null;
         }
-        const [line, tabstop] = result;
-        return [this.tabstops.length - line - 1, tabstop];
+        const [line, tabStop] = result;
+        return [this.tabStops.length - line - 1, tabStop];
     }
 
-    private getAfterTheCurrentTabstop(targets: TabStopToken[][]): [number, TabStopToken] | null {
-        let firstTabstop: [number, TabStopToken] | null = null;
+    private getAfterTheCurrentTabStop(targets: TabStopToken[][]): [number, TabStopToken] | null {
+        let firstTabStop: [number, TabStopToken] | null = null;
         let passed = false;
         let line = 0;
-        for (const tabstops of targets) {
-            for (const tabstop of tabstops) {
-                if (!this.currentTabstop || passed) {
-                    return [line, tabstop];
+        for (const tabStops of targets) {
+            for (const tabStop of tabStops) {
+                if (!this.currentTabStop || passed) {
+                    return [line, tabStop];
                 }
-                if (!firstTabstop) {
-                    firstTabstop = [line, tabstop];
+                if (!firstTabStop) {
+                    firstTabStop = [line, tabStop];
                 }
-                passed = tabstop.tokenId === this.currentTabstop.tokenId;
+                passed = tabStop.tokenId === this.currentTabStop.tokenId;
             }
             line++;
         }
-        return firstTabstop;
+        return firstTabStop;
     }
 
-    private getCursorCol(tabstop: TabStopToken, line: number): number {
+    private getCursorCol(tabStop: TabStopToken, line: number): number {
         let col = 0;
         const tokens = this.lines[line].tokens;
         for (const token of tokens) {
-            if (token.hasToken(tabstop)) {
-                col += token.getCursorCol(tabstop);
+            if (token.hasToken(tabStop)) {
+                col += token.getCursorCol(tabStop);
                 break;
             }
             col += token.toText().length;
@@ -81,6 +110,7 @@ export class Snippet {
     }
 
     public toText(): string[] {
+        this.walkTokens();
         return this.lines.map(line => line.toText(this.left));
     }
 
@@ -95,12 +125,10 @@ export class SnippetLine {
     public constructor(public readonly tokens: SnippetToken[]) {
     }
 
-    public getTabstops(): TabStopToken[] {
-        const tokens: TabStopToken[] = [];
+    public getTokens<T extends SnippetToken>(isTargetToken: (token: SnippetToken) => token is T): T[] {
+        const tokens: T[] = [];
         for (const token of this.tokens) {
-            if (token instanceof TabStopToken) {
-                tokens.push(token);
-            }
+            tokens.push(...token.getTokens(isTargetToken));
         }
         return tokens;
     }
@@ -123,6 +151,13 @@ export abstract class SnippetToken {
 
     public getCursorCol(_targetToken: SnippetToken): number {
         return this.toText().length;
+    }
+
+    public getTokens<T extends SnippetToken>(isTargetToken: (token: SnippetToken) => token is T): T[] {
+        if (isTargetToken(this)) {
+            return [this];
+        }
+        return [];
     }
 
     public abstract toText(): string;
@@ -189,6 +224,17 @@ export class TabStopToken extends SnippetToken {
         return new TabStopToken(this.tokenId, placeholder, tabstop);
     }
 
+    public getTokens<T extends SnippetToken>(isTargetToken: (token: SnippetToken) => token is T): T[] {
+        const tokens: T[] = [];
+        if (isTargetToken(this)) {
+            tokens.push(this);
+        }
+        for (const t of this.placeholder) {
+            tokens.push(...t.getTokens(isTargetToken))
+        }
+        return tokens;
+    }
+
     public hasToken(token: SnippetToken): boolean {
         if (token === this) {
             return true;
@@ -222,12 +268,20 @@ export class TabStopToken extends SnippetToken {
 
 
 export class MirrorToken extends SnippetToken {
+    private targetTabStopToken: TabStopToken | null = null;
     public constructor(public readonly tokenId: string, tabstop=0) {
         super(tabstop);
     }
 
+    public setTargetTabStopToken(token: TabStopToken): void {
+        this.targetTabStopToken = token;
+    }
+
     public toText(): string {
-        return `[mirror-${this.tokenId}]`;
+        if (this.targetTabStopToken) {
+            return this.targetTabStopToken.toText();
+        }
+        return `$${this.tokenId}`;
     }
 
     public createEmpty(tabstop: number): MirrorToken {

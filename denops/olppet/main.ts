@@ -1,4 +1,4 @@
-import { Denops } from './deps.ts';
+import { Denops, autocmd } from './deps.ts';
 import { Config } from './types.ts';
 import { SnippetEngine } from './engine.ts';
 
@@ -18,9 +18,14 @@ export async function main(denops: Denops): Promise<void> {
         async jumpBackward(): Promise<void> {
             await snippetEngine.jumpBackward(denops);
         },
+        insertLeave(): Promise<void> {
+            snippetEngine.leaveInsertMode();
+            return Promise.resolve();
+        },
         getCandidates(): Promise<{word: string, menu?: string}[]> {
             return snippetEngine.getCandidates(denops);
         }
     };
     await denops.cmd('doautocmd <nomodeline> User OlppetReady');
+    await autocmd.define(denops, 'InsertLeave', '*', 'call denops#request("olppet", "insertLeave", [])');
 }

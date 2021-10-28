@@ -8,6 +8,7 @@ export class SnippetEngine {
     private readonly snippet_directories: string[] = [];
     private readonly snippets: Map<string, Snippet> = new Map();
     private filetype = '';
+    private currentSnippet: Snippet | null = null;
 
     public async setConfig(denops: Denops, config: Config): Promise<void> {
         await this.setSnippetConfig(denops, config);
@@ -102,44 +103,69 @@ export class SnippetEngine {
 
     public async expand(denops: Denops): Promise<void> {
         await this.loadSnippetsIfNeeds(denops);
-        const col: number = await denops.call('col', "'^") as number;
-        await this.insertSnippet(denops, col);
-        await denops.call('feedkeys', col === 1 ? 'i' : 'a');
+        const insertResult = await this.insertSnippet(denops);
+        if (insertResult || this.currentSnippet) {
+            await this.jumpForward(denops);
+            await denops.call('feedkeys', 'a');
+        } else {
+            const col: number = await denops.call('col', "'^") as number;
+            await denops.call('feedkeys', col === 1 ? 'i' : 'a');
+        }
+
     }
 
-    private async insertSnippet(denops: Denops, col: number): Promise<void> {
+    private async insertSnippet(denops: Denops): Promise<boolean> {
         const line: number = await denops.call('line', "'^") as number;
+        const col: number = await denops.call('col', "'^") as number;
         const currentLine: string = await denops.call('getline', line) as string;
         const head = currentLine.substr(0, col - 1);
         const triggerMatch = head.match(/(?<=(?:\s|^))[a-zA-Z]+$/);
         const tabstop: number = await option.tabstop.get(denops);
 
         if (!triggerMatch) {
-            return;
+            return false;
         }
         const trigger = triggerMatch[0];
         const snippet = this.snippets.get(trigger);
         if (!snippet) {
-            return;
+            return false;
         }
-        const snippetLines = snippet.toText(col - trigger.length - 1, tabstop);
+        this.currentSnippet = snippet.createEmpty(tabstop, line, col - trigger.length - 1);
+        const snippetLines = this.currentSnippet.toText();
         for (let i = 0; i < snippetLines.length; i++) {
             const snippetLine = snippetLines[i];
             if (i === 0) {
-                const firstLine = head.substr(0, head.length - trigger.length) + snippetLine;
+                const firstLine = head.substr(0, -trigger.length) + snippetLine;
                 await denops.call('setline', line, firstLine);
             } else {
                 await denops.call('append', line + i - 1, snippetLine);
             }
         }
+        return true;
     }
 
     public async jumpForward(denops: Denops): Promise<void> {
-        console.log('jumpForward');
+        if (!this.currentSnippet) {
+            return;
+        }
+        const position = this.currentSnippet.getNextTabstopPosition();
+        if (!position) {
+            return;
+        }
+        const {lnum, col} = position;
+        await denops.call('cursor', lnum, col);
     }
 
     public async jumpBackward(denops: Denops): Promise<void> {
-        console.log('jumpBackward');
+        if (!this.currentSnippet) {
+            return;
+        }
+        const position = this.currentSnippet.getPrevTabstopPosition();
+        if (!position) {
+            return;
+        }
+        const {lnum, col} = position;
+        await denops.call('cursor', lnum, col);
     }
 
     public async getCandidates(denops: Denops): Promise<{word: string, menu?: string}[]> {

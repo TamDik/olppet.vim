@@ -1,4 +1,4 @@
-import { Snippet, SnippetLine, SnippetToken, SnippetIndentToken, SnippetTabStopToken, SnippetTextToken, SnippetMirrorToken } from './snippet.ts';
+import { Snippet, SnippetLine, SnippetToken, IndentToken, TabStopToken, TextToken, MirrorToken } from './snippet.ts';
 
 abstract class Parser {
     public parse(text: string): Snippet[] {
@@ -71,7 +71,7 @@ export class SnipMateParser extends Parser {
         const text = indentMatch[2];
         const indent = Math.max(0, indentMatch[1].length - 1);
         for (let i = 0; i < indent; i++) {
-            tokens.push(new SnippetIndentToken());
+            tokens.push(new IndentToken());
         }
 
         const textAndTabStop = this.splitByRegex(text, /\${[^}]*}/g);
@@ -83,7 +83,7 @@ export class SnipMateParser extends Parser {
                 const tabStopText = textAndTabStop[i];
                 const match = tabStopText.match(/^\$\{([^:]*)(?::(.*))?\}$/) as RegExpMatchArray;
                 const placeholder = match[2] ? this.tokenizeMirrorText(match[2]) : [];
-                tokens.push(new SnippetTabStopToken(match[1], placeholder));
+                tokens.push(new TabStopToken(match[1], placeholder));
             }
         }
         return tokens;
@@ -95,9 +95,9 @@ export class SnipMateParser extends Parser {
         for (let j = 0; j < textAndMirror.length; j++) {
             const text = textAndMirror[j];
             if (j % 2 === 0) {
-                tokens.push(new SnippetTextToken(text));
+                tokens.push(new TextToken(text));
             } else {
-                tokens.push(new SnippetMirrorToken(text.substr(1)));
+                tokens.push(new MirrorToken(text.substr(1)));
             }
         }
         return tokens;

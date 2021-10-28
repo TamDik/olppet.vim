@@ -32,11 +32,15 @@ export class Snippet {
     }
 
     private getNextTabstop(): [number, TabStopToken] | null {
-        return this.getFirstTabstop(this.tabstops);
+        return this.getAfterTheCurrentTabstop(this.tabstops);
     }
 
     private getPrevTabstop(): [number, TabStopToken] | null {
-        const result = this.getFirstTabstop([...this.tabstops].reverse());
+        const reversed: TabStopToken[][] = [];
+        for (const tabstops of [...this.tabstops].reverse()) {
+            reversed.push([...tabstops].reverse());
+        }
+        const result = this.getAfterTheCurrentTabstop(reversed);
         if (!result) {
             return null;
         }
@@ -44,7 +48,7 @@ export class Snippet {
         return [this.tabstops.length - line - 1, tabstop];
     }
 
-    private getFirstTabstop(targets: TabStopToken[][]): [number, TabStopToken] | null {
+    private getAfterTheCurrentTabstop(targets: TabStopToken[][]): [number, TabStopToken] | null {
         let firstTabstop: [number, TabStopToken] | null = null;
         let passed = false;
         let line = 0;

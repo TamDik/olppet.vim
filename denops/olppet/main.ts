@@ -1,4 +1,4 @@
-import { Denops, autocmd, unknownutil } from './deps.ts';
+import { Denops } from './deps.ts';
 import { Config } from './types.ts';
 import { SnippetEngine } from './engine.ts';
 
@@ -9,22 +9,18 @@ export async function main(denops: Denops): Promise<void> {
         async config(args): Promise<void> {
             await snippetEngine.setConfig(denops, args as Config);
         },
-        async expand(key): Promise<void> {
-            unknownutil.ensureString(key);
-            await snippetEngine.expand(denops, key);
+        async expand(): Promise<void> {
+            await snippetEngine.expand(denops);
         },
-        async jumpForward(key): Promise<void> {
-            unknownutil.ensureString(key);
-            await snippetEngine.jumpForward(denops, key);
+        async jumpForward(): Promise<void> {
+            await snippetEngine.jumpForward(denops);
         },
-        async jumpBackward(key): Promise<void> {
-            unknownutil.ensureString(key);
-            await snippetEngine.jumpBackward(denops, key);
+        async jumpBackward(): Promise<void> {
+            await snippetEngine.jumpBackward(denops);
         },
         getCandidates(): Promise<{word: string, menu?: string}[]> {
             return snippetEngine.getCandidates(denops);
         }
     };
     await denops.cmd('doautocmd <nomodeline> User OlppetReady');
-    await autocmd.define(denops, 'InsertLeave', '*', 'echomsg "InsertLeave"');
 }

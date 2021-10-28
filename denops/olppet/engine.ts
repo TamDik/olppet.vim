@@ -50,8 +50,7 @@ export class SnippetEngine {
     }
 
     private olppetMapping(key: string, method: 'expand'|'jumpForward'|'jumpBackward'): string {
-        const escapedKey = escape(key);
-        return `inoremap <silent> ${key} <C-c>:call denops#request('olppet', '${method}', ['${escapedKey}'])<CR>`;
+        return `inoremap <silent> ${key} <C-c>:call denops#request('olppet', '${method}', [])<CR>`;
     }
 
     private async loadSnippetsIfNeeds(denops: Denops): Promise<void> {
@@ -101,49 +100,45 @@ export class SnippetEngine {
         return snippetsFilepath;
     }
 
-    public async expand(denops: Denops, escapedKey: string): Promise<void> {
+    public async expand(denops: Denops): Promise<void> {
         await this.loadSnippetsIfNeeds(denops);
-
-        const line: number = await denops.call('line', "'^") as number;
         const col: number = await denops.call('col', "'^") as number;
+        await this.insertSnippet(denops, col);
+        await denops.call('feedkeys', col === 1 ? 'i' : 'a');
+    }
+
+    private async insertSnippet(denops: Denops, col: number): Promise<void> {
+        const line: number = await denops.call('line', "'^") as number;
         const currentLine: string = await denops.call('getline', line) as string;
         const head = currentLine.substr(0, col - 1);
-        const tail = currentLine.substr(col - 1);
         const triggerMatch = head.match(/(?<=(?:\s|^))[a-zA-Z]+$/);
         const tabstop: number = await option.tabstop.get(denops);
 
-        batch(denops, async (denops) => {
-            if (triggerMatch) {
-                const trigger = triggerMatch[0];
-                const snippet = this.snippets.get(trigger);
-                if (snippet) {
-                    const snippetLines = snippet.toText(col - trigger.length - 1, tabstop);
-                    for (let i = 0; i < snippetLines.length; i++) {
-                        const snippetLine = snippetLines[i];
-                        if (i === 0) {
-                            const firstLine = head.substr(0, head.length - trigger.length) + snippetLine;
-                            await denops.call('setline', line, firstLine);
-                        } else {
-                            await denops.call('append', line + i - 1, snippetLine);
-                        }
-                    }
-                    await denops.call('feedkeys', col === 1 ? 'i' : 'a');
-                    return;
-                }
+        if (!triggerMatch) {
+            return;
+        }
+        const trigger = triggerMatch[0];
+        const snippet = this.snippets.get(trigger);
+        if (!snippet) {
+            return;
+        }
+        const snippetLines = snippet.toText(col - trigger.length - 1, tabstop);
+        for (let i = 0; i < snippetLines.length; i++) {
+            const snippetLine = snippetLines[i];
+            if (i === 0) {
+                const firstLine = head.substr(0, head.length - trigger.length) + snippetLine;
+                await denops.call('setline', line, firstLine);
+            } else {
+                await denops.call('append', line + i - 1, snippetLine);
             }
-
-            const key = unescape(escapedKey);
-            const defaultText = key === '\t' ? ' '.repeat(tabstop) : key;
-            await denops.call('setline', line, head + defaultText + tail);
-            await denops.call('feedkeys', `${defaultText.length}la`);
-        });
+        }
     }
 
-    public async jumpForward(denops: Denops, escapedKey: string): Promise<void> {
+    public async jumpForward(denops: Denops): Promise<void> {
         console.log('jumpForward');
     }
 
-    public async jumpBackward(denops: Denops, escapedKey: string): Promise<void> {
+    public async jumpBackward(denops: Denops): Promise<void> {
         console.log('jumpBackward');
     }
 

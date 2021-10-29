@@ -21,7 +21,6 @@ export class SnipMateParser extends Parser {
         super(filepath);
     }
 
-
     public static async fetchSnippetsFiles(directory: string, scope: string): Promise<string[]> {
         const globs: string[] = [
             `${directory}/snippets/${scope}.snippets`,
@@ -61,7 +60,7 @@ export class SnipMateParser extends Parser {
         const lines = this.removeMeaninglessLines(text.split(/\n/));
         for (const line of lines) {
             if (line.match(/^ *delete/)) {
-                console.log('snippet:', line);
+                console.log('delete:', line);
                 continue;
             }
             if (line.match(/^ *extends/)) {
@@ -84,7 +83,9 @@ export class SnipMateParser extends Parser {
                 continue;
             }
             if (line.match(/^(\s+|^$)/)) {
-                blockLines.push(line);
+                if (blockLines.length !== 0) {
+                    blockLines.push(line);
+                }
                 continue;
             }
             console.error('parse error', line);

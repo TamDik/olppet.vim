@@ -105,8 +105,7 @@ export class SnippetEngine {
         const col: number = await denops.call('col', "'^") as number;
         const currentLine: string = await denops.call('getline', line) as string;
         const head = currentLine.substr(0, col - 1);
-        const triggerMatch = head.match(/(?<=(?:\s|^))[a-zA-Z]+$/);
-        const tabstop: number = await option.tabstop.get(denops);
+        const triggerMatch = head.match(/(?<=(?:\s|^))\S+$/);
 
         if (!triggerMatch) {
             return false;
@@ -116,6 +115,7 @@ export class SnippetEngine {
         if (!snippet) {
             return false;
         }
+        const tabstop: number = await option.tabstop.get(denops);
         this.currentSnippet = snippet.createEmpty(tabstop, line, col - trigger.length - 1);
         const snippetLines = this.currentSnippet.toText();
         for (let i = 0; i < snippetLines.length; i++) {

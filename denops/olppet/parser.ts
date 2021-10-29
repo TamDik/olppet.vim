@@ -59,26 +59,26 @@ export class SnipMateParser extends Parser {
         const blocks = [];
         let blockLines: string[] = [];
         for (const line of text.split(/\n/)) {
-            if (line.match(/(^\s*#|^$)/)) {
+            if (line.match(/(^ *#|^$)/)) {
                 continue;
             }
-            if (line.match(/^\s*delete/)) {
+            if (line.match(/^ *delete/)) {
                 console.log('snippet:', line);
                 continue;
             }
-            if (line.match(/^\s*extends/)) {
-                this.extends.push(line.replace(/\s*extends\s*/, ''));
+            if (line.match(/^ *extends/)) {
+                this.extends.push(line.replace(/ *extends\s*/, ''));
                 continue;
             }
-            if (line.match(/^\s*include/)) {
+            if (line.match(/^ *include/)) {
                 console.log('include:', line);
                 continue;
             }
-            if (line.match(/^\s*source/)) {
+            if (line.match(/^ *source/)) {
                 console.log('source:', line);
                 continue;
             }
-            if (line.match(/^\s*snippet/)) {
+            if (line.match(/^ *snippet/)) {
                 if (blockLines.length !== 0) {
                     blocks.push(blockLines.join('\n'))
                 }

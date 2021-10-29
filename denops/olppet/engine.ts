@@ -100,8 +100,8 @@ export class SnippetEngine {
             } else {
                 cursor = this.currentSnippet.getEndPosition();
             }
-            await denops.call('cursor', cursor.lnum, cursor.col);
-            await denops.call('feedkeys', 'a');
+            await denops.call('cursor', cursor.lnum, Math.max(1, cursor.col));
+            await denops.call('feedkeys', cursor.col === 0 ? 'i' : 'a');
         } else {
             const col: number = await denops.call('col', "'^") as number;
             await denops.call('feedkeys', col === 1 ? 'i' : 'a');

@@ -40,7 +40,7 @@ export class SnipMateParser extends Parser {
         return snippetsFilepath;
     }
 
-    public async parseText(text: string): Promise<Snippet[]> {
+    protected async parseText(text: string): Promise<Snippet[]> {
         const snippetBlocks = this.splitBlock(text);
         const snippets = snippetBlocks.map(snippetBlock => this.parseBlock(snippetBlock));
 
@@ -55,13 +55,11 @@ export class SnipMateParser extends Parser {
         return snippets;
     }
 
-    protected splitBlock(text: string): string[] {
+    private splitBlock(text: string): string[] {
         const blocks = [];
         let blockLines: string[] = [];
-        for (const line of text.split(/\n/)) {
-            if (line.match(/(^ *#|^$)/)) {
-                continue;
-            }
+        const lines = this.removeMeaninglessLines(text.split(/\n/));
+        for (const line of lines) {
             if (line.match(/^ *delete/)) {
                 console.log('snippet:', line);
                 continue;
@@ -85,16 +83,33 @@ export class SnipMateParser extends Parser {
                 blockLines = [line];
                 continue;
             }
-            if (line.match(/^\s+/)) {
+            if (line.match(/^(\s+|^$)/)) {
                 blockLines.push(line);
                 continue;
             }
             console.error('parse error', line);
         }
+        if (blockLines.length !== 0) {
+            blocks.push(blockLines.join('\n'))
+        }
         return blocks;
     }
 
-    protected parseBlock(snippetBlock: string): Snippet {
+    private removeMeaninglessLines(lines: string[]): string[] {
+        const removed: string[] = [];
+        for (const line of lines) {
+            if (line.match(/(^ *#)/)) {
+                continue;
+            }
+            removed.push(line);
+        }
+        if (removed[removed.length - 1] === '') {
+            removed.pop();
+        }
+        return removed;
+    }
+
+    private parseBlock(snippetBlock: string): Snippet {
         const [head, ...body] = snippetBlock.split(/\n/);
         const trigger = head.match(/(?<=^snippet\s+)\S+/) as RegExpMatchArray;
         const snippetLine: SnippetLine[] = body.filter(line => !line.startsWith('#'))

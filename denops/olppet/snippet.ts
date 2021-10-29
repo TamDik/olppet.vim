@@ -60,6 +60,12 @@ export class Snippet {
         return {lnum: this.top_ + line, col: this.getCursorCol(tabStop, line)};
     }
 
+    public getEndPosition(): {lnum: number, col: number} {
+        const lnum = this.top_ + this.lines.length - 1;
+        const col = this.lines[this.lines.length - 1].toText(this.left).length;
+        return {lnum, col};
+    }
+
     private getNextTabStop(): [number, TabStopToken] | null {
         return this.getAfterTheCurrentTabStop(this.tabStops);
     }

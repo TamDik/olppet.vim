@@ -1,4 +1,4 @@
-import { Denops, batch, option, expandGlob } from './deps.ts';
+import { Denops, batch, option } from './deps.ts';
 import { Snippet } from './snippet.ts';
 import { SnipMateParser } from './parser.ts';
 import { Config } from './types.ts';
@@ -92,7 +92,15 @@ export class SnippetEngine {
         await this.loadSnippetsIfNeeds(denops);
         const insertResult = await this.insertSnippet(denops);
         if (insertResult) {
-            await this.moveTo(denops, 'next');
+            this.currentSnippet = insertResult;
+            const position = this.currentSnippet.getNextTabStopPosition();
+            let cursor: {lnum: number, col: number};
+            if (position) {
+                cursor = position;
+            } else {
+                cursor = this.currentSnippet.getEndPosition();
+            }
+            await denops.call('cursor', cursor.lnum, cursor.col);
             await denops.call('feedkeys', 'a');
         } else {
             const col: number = await denops.call('col', "'^") as number;
@@ -100,7 +108,7 @@ export class SnippetEngine {
         }
     }
 
-    private async insertSnippet(denops: Denops): Promise<boolean> {
+    private async insertSnippet(denops: Denops): Promise<Snippet | null> {
         const line: number = await denops.call('line', "'^") as number;
         const col: number = await denops.call('col', "'^") as number;
         const currentLine: string = await denops.call('getline', line) as string;
@@ -108,16 +116,16 @@ export class SnippetEngine {
         const triggerMatch = head.match(/(?<=(?:\s|^))\S+$/);
 
         if (!triggerMatch) {
-            return false;
+            return null;
         }
         const trigger = triggerMatch[0];
         const snippet = this.snippets.get(trigger);
         if (!snippet) {
-            return false;
+            return null;
         }
         const tabstop: number = await option.tabstop.get(denops);
-        this.currentSnippet = snippet.createEmpty(tabstop, line, col - trigger.length - 1);
-        const snippetLines = this.currentSnippet.toText();
+        const emptySnippet = snippet.createEmpty(tabstop, line, col - trigger.length - 1);
+        const snippetLines = emptySnippet.toText();
         for (let i = 0; i < snippetLines.length; i++) {
             const snippetLine = snippetLines[i];
             if (i === 0) {
@@ -127,7 +135,7 @@ export class SnippetEngine {
                 await denops.call('append', line + i - 1, snippetLine);
             }
         }
-        return true;
+        return emptySnippet;
     }
 
     public async jumpForward(denops: Denops): Promise<void> {

@@ -1,3 +1,8 @@
+type Position = {
+    lnum: number,
+    col: number
+}
+
 export class Snippet {
     private walked = false;
     private currentTabStop: TabStopToken | null = null;
@@ -6,7 +11,11 @@ export class Snippet {
                        private readonly lines: SnippetLine[],
                        public readonly description: string|null,
                        private top_: number=0,
-                       private left: number=0) {
+                       private head: string='') {
+    }
+
+    private get left(): number {
+        return this.head.length;
     }
 
     private walkTokens(): void {
@@ -36,93 +45,117 @@ export class Snippet {
         }
     }
 
-    public getNextTabStopPosition(): {lnum: number, col: number} | null {
+    public getCurrentTabStopText(): string | null {
+        if (!this.currentTabStop) {
+            return null;
+        }
+        return this.currentTabStop.getText();
+    }
+
+    public setCurrentTabStopText(text: string): void {
+        if (!this.currentTabStop) {
+            throw Error('error');
+        }
+        this.currentTabStop.setText(text);
+    }
+
+    public getCurrentTabStopPosition(): Position | null {
+        this.walkTokens();
+        if (!this.currentTabStop) {
+            return null;
+        }
+        return this.getTabStopPosition(this.currentTabStop);
+    }
+
+    public getNextTabStopPosition(): Position | null {
         this.walkTokens();
         const nextTabStop = this.getNextTabStop();
         if (!nextTabStop) {
             return null;
         }
-        const [line, tabStop] = nextTabStop;
-        this.currentTabStop = tabStop;
-        const lnum = this.top_ + line;
-        const col = this.left + this.getCursorCol(tabStop, line);
-        return {lnum, col};
+        this.currentTabStop = nextTabStop;
+        return this.getTabStopPosition(this.currentTabStop);
     }
 
-    public getPrevTabStopPosition(): {lnum: number, col: number} | null {
+    public getPrevTabStopPosition(): Position | null {
         this.walkTokens();
         const prevTabStop = this.getPrevTabStop();
         if (!prevTabStop) {
             return null;
         }
-        const [line, tabStop] = prevTabStop;
-        this.currentTabStop = tabStop;
-        return {lnum: this.top_ + line, col: this.getCursorCol(tabStop, line)};
+        this.currentTabStop = prevTabStop;
+        return this.getTabStopPosition(this.currentTabStop);
     }
 
-    public getEndPosition(): {lnum: number, col: number} {
+    public getStartPosition(): Position {
+        return {lnum: this.top_, col: this.left};
+    }
+
+    public getEndPosition(): Position {
         const lnum = this.top_ + this.lines.length - 1;
-        const col = this.lines[this.lines.length - 1].toText(this.left).length;
+        const col = this.lines[this.lines.length - 1].toText(' '.repeat(this.left)).length;
         return {lnum, col};
     }
 
-    private getNextTabStop(): [number, TabStopToken] | null {
+    private getNextTabStop(): TabStopToken | null {
         return this.getAfterTheCurrentTabStop(this.tabStops);
     }
 
-    private getPrevTabStop(): [number, TabStopToken] | null {
+    private getPrevTabStop(): TabStopToken | null {
         const reversed: TabStopToken[][] = [];
         for (const tabStops of [...this.tabStops].reverse()) {
             reversed.push([...tabStops].reverse());
         }
-        const result = this.getAfterTheCurrentTabStop(reversed);
-        if (!result) {
-            return null;
-        }
-        const [line, tabStop] = result;
-        return [this.tabStops.length - line - 1, tabStop];
+        return this.getAfterTheCurrentTabStop(reversed);
     }
 
-    private getAfterTheCurrentTabStop(targets: TabStopToken[][]): [number, TabStopToken] | null {
-        let firstTabStop: [number, TabStopToken] | null = null;
+    private getAfterTheCurrentTabStop(targets: TabStopToken[][]): TabStopToken | null {
+        let firstTabStop: TabStopToken | null = null;
         let passed = false;
-        let line = 0;
         for (const tabStops of targets) {
             for (const tabStop of tabStops) {
                 if (!this.currentTabStop || passed) {
-                    return [line, tabStop];
+                    return tabStop;
                 }
                 if (!firstTabStop) {
-                    firstTabStop = [line, tabStop];
+                    firstTabStop = tabStop;
                 }
                 passed = tabStop.tokenId === this.currentTabStop.tokenId;
             }
-            line++;
         }
         return firstTabStop;
     }
 
-    private getCursorCol(tabStop: TabStopToken, line: number): number {
-        let col = 0;
-        const tokens = this.lines[line].tokens;
-        for (const token of tokens) {
-            if (token.hasToken(tabStop)) {
-                col += token.getCursorCol(tabStop);
-                break;
+    private getTabStopPosition(tabStop: TabStopToken): Position | null {
+        let lnum = 0;
+        for (const len = this.lines.length; lnum < len; lnum++) {
+            const line = this.lines[lnum];
+            if (!line.hasToken(tabStop)) {
+                continue;
             }
-            col += token.toText().length;
+            let col = 0;
+            const tokens = line.tokens;
+            for (const token of tokens) {
+                if (token.hasToken(tabStop)) {
+                    col += token.getCursorCol(tabStop);
+                    break;
+                }
+                col += token.toText().length;
+            }
+            return {lnum: this.top_ + lnum, col: this.left + col};
         }
-        return col;
+        return null;
     }
 
     public toText(): string[] {
         this.walkTokens();
-        return this.lines.map(line => line.toText(this.left));
+        const spaces = ' '.repeat(this.left)
+        return this.lines.map((line, i) => line.toText(i === 0 ? this.head : spaces));
     }
 
-    public createEmpty(tabstop: number, top_: number, left: number): Snippet {
+    public createEmpty(tabstop: number, top_: number, head: string): Snippet {
         const lines = this.lines.map(line => line.createEmpty(tabstop));
-        return new Snippet(this.trigger, lines, this.description, top_, left);
+        return new Snippet(this.trigger, lines, this.description, top_, head);
     }
 }
 
@@ -139,14 +172,23 @@ export class SnippetLine {
         return tokens;
     }
 
-    public toText(left: number): string {
+    public toText(head: string): string {
         const text = this.tokens.map(token => token.toText()).join('');
-        return ' '.repeat(left) + text;
+        return head + text;
     }
 
     public createEmpty(tabstop: number): SnippetLine {
         const tokens = this.tokens.map(token => token.createEmpty(tabstop));
         return new SnippetLine(tokens);
+    }
+
+    public hasToken(targetToken: SnippetToken): boolean {
+        for (const token of this.tokens) {
+            if (token.hasToken(targetToken)) {
+                return true;
+            }
+        }
+        return false;
     }
 }
 
@@ -218,8 +260,16 @@ export class TabStopToken extends SnippetToken {
         super(tabstop);
     }
 
+    public getText(): string | null {
+        return this.inputText;
+    }
+
+    public setText(text: string): void {
+        this.inputText = text;
+    }
+
     public toText(): string {
-        if (this.inputText) {
+        if (this.inputText !== null) {
             return this.inputText;
         }
         if (this.placeholder.length === 0) {

@@ -124,13 +124,12 @@ export class SnippetEngine {
             return null;
         }
         const tabstop: number = await option.tabstop.get(denops);
-        const emptySnippet = snippet.createEmpty(tabstop, line, col - trigger.length - 1);
+        const emptySnippet = snippet.createEmpty(tabstop, line, head.substr(0, head.length - trigger.length));
         const snippetLines = emptySnippet.toText();
         for (let i = 0; i < snippetLines.length; i++) {
             const snippetLine = snippetLines[i];
             if (i === 0) {
-                const firstLine = head.substr(0, -trigger.length) + snippetLine;
-                await denops.call('setline', line, firstLine);
+                await denops.call('setline', line, snippetLine);
             } else {
                 await denops.call('append', line + i - 1, snippetLine);
             }
@@ -167,6 +166,48 @@ export class SnippetEngine {
 
     public leaveInsertMode(): void {
         this.currentSnippet = null;
+    }
+
+    public async textChanged(denops: Denops): Promise<void> {
+        if (!this.currentSnippet) {
+            return;
+        }
+        const currentPos = this.currentSnippet.getCurrentTabStopPosition();
+        if (!currentPos) {
+            return;
+        }
+        const col: number = await denops.call('col', ".") as number;
+        const moved = col - currentPos.col - 1;
+        if (moved === 0) {
+            return;
+        }
+        const line: string = await denops.call('getline', '.') as string;
+        const text = this.currentSnippet.getCurrentTabStopText();
+
+        if (moved > 0) {
+            // add
+            let newText = line.substr(currentPos.col, moved);
+            if (text) {
+                newText = text + newText;
+            }
+            this.currentSnippet.setCurrentTabStopText(newText);
+        } else if (text !== null && text.length >= -moved) {
+            // remove
+            const newText = text.substr(0, text.length + moved);
+            this.currentSnippet.setCurrentTabStopText(newText);
+        } else {
+            // over
+            this.currentSnippet = null;
+            return;
+        }
+
+        // update
+        const snippetLines = this.currentSnippet.toText();
+        const top_ = this.currentSnippet.getStartPosition().lnum;
+        for (let i = 0; i < snippetLines.length; i++) {
+            const snippetLine = snippetLines[i];
+            await denops.call('setline', top_ + i, snippetLine);
+        }
     }
 
     public async getCandidates(denops: Denops): Promise<{word: string, menu?: string}[]> {

@@ -22,10 +22,14 @@ export async function main(denops: Denops): Promise<void> {
             snippetEngine.leaveInsertMode();
             return Promise.resolve();
         },
+        async textChanged(): Promise<void> {
+            await snippetEngine.textChanged(denops);
+        },
         getCandidates(): Promise<{word: string, menu?: string}[]> {
             return snippetEngine.getCandidates(denops);
         }
     };
     await denops.cmd('doautocmd <nomodeline> User OlppetReady');
     await autocmd.define(denops, 'InsertLeave', '*', 'call denops#request("olppet", "insertLeave", [])');
+    await autocmd.define(denops, ['TextChangedI', 'TextChangedP'], '*', 'call denops#request("olppet", "textChanged", [])');
 }

@@ -36,10 +36,11 @@ export class Snippet {
             mirrorTokens.push(...line.getTokens(isMirror));
         }
 
-        for (const tabStop of this.tabStops.flat()) {
-            for (const mirrorToken of mirrorTokens) {
+        for (const mirrorToken of mirrorTokens) {
+            for (const tabStop of this.tabStops.flat()) {
                 if (mirrorToken.tokenId === tabStop.tokenId) {
                     mirrorToken.setTargetTabStopToken(tabStop);
+                    break;
                 }
             }
         }

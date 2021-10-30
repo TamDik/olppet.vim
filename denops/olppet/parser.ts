@@ -113,18 +113,16 @@ export class SnipMateParser extends Parser {
     private parseBlock(snippetBlock: string): Snippet {
         const [head, ...body] = snippetBlock.split(/\n/);
         const trigger = head.match(/(?<=^snippet\s+)\S+/) as RegExpMatchArray;
-        const snippetLine: SnippetLine[] = body.filter(line => !line.startsWith('#'))
-                                               .map(line => this.parseLine(line));
+        const snippetLine: SnippetLine[] = [];
+        const tabstops: Set<string> = new Set();
+        for (const line of body) {
+            snippetLine.push(this.parseLine(line, tabstops));
+        }
         const description = head.match(/(?<=^snippet\s+\S+\s+").*(?=")/);
         return new Snippet(trigger[0], snippetLine, description ? description[0] : null);
     }
 
-    private parseLine(line: string): SnippetLine {
-        const tokens = this.tokenize(line);
-        return new SnippetLine(tokens);
-    }
-
-    private tokenize(line: string): SnippetToken[] {
+    private parseLine(line: string, tabstops: Set<string>): SnippetLine {
         const tokens: SnippetToken[] = [];
 
         const indentMatch = line.match(/^(\t*)(.*)$/) as RegExpMatchArray;
@@ -142,11 +140,17 @@ export class SnipMateParser extends Parser {
             } else {
                 const tabStopText = textAndTabStop[i];
                 const match = tabStopText.match(/^\$\{([^:]*)(?::(.*))?\}$/) as RegExpMatchArray;
-                const placeholder = match[2] ? this.tokenizeMirrorText(match[2]) : [];
-                tokens.push(new TabStopToken(match[1], placeholder));
+                const tabstopId = match[1];
+                if (!tabstops.has(tabstopId)) {
+                    const placeholder = match[2] ? this.tokenizeMirrorText(match[2]) : [];
+                    tokens.push(new TabStopToken(match[1], placeholder));
+                    tabstops.add(tabstopId);
+                } else {
+                    tokens.push(new MirrorToken(match[1]));
+                }
             }
         }
-        return tokens;
+        return new SnippetLine(tokens);
     }
 
     private tokenizeMirrorText(tokenText: string): SnippetToken[] {

@@ -1,0 +1,50 @@
+*olppet.txt* snippets engine
+
+Author: TamDik
+License: MIT license
+
+==============================================================================
+INTRODUCTION                                             *olppet-introduction*
+
+==============================================================================
+INSTALL                                                       *olppet-install*
+
+Please install Deno and "denops.vim".
+
+https://deno.land/
+https://github.com/vim-denops/denops.vim
+
+Note: olppet.vim does not include any snippets.
+
+==============================================================================
+INTERFACE                                                   *olppet-interface*
+
+------------------------------------------------------------------------------
+FUNCTIONS                                                   *olppet-functions*
+
+olppet#config(dict)                                          *olppet#config()*
+        The key is {option-name} and the value is {value}. See
+        |olppet-options| for all {option-name}.
+
+------------------------------------------------------------------------------
+OPTIONS                                                       *olppet-options*
+
+Options can be set with |olppet#config()|.
+
+                                                       *olppet-config-snippet*
+snippet (string) or (string[])
+        todo
+
+                                                        *olppet-config-expand*
+expand (string) or (string[])
+        the keys to expand the snippet.
+
+                                                  *olppet-config-jump_forward*
+jump_forward (string or string[])
+        the keys to jump to the forward tab stop.
+
+                                                 *olppet-config-jump_backward*
+jump_backward (string or string[])
+        the keys to jump to the previous tab stop.
+
+vim:tw=78:ts=8:ft=help:norl:

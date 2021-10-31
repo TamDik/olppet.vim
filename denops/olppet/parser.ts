@@ -1,5 +1,5 @@
 import { expandGlob } from './deps.ts';
-import { Snippet, SnippetLine, SnippetToken, IndentToken, TabStopToken, TextToken, MirrorToken } from './snippet.ts';
+import { Snippet, SnippetLine, SnippetToken, IndentToken, TabStopToken, TextToken, MirrorToken, VimToken } from './snippet.ts';
 
 
 abstract class Parser {
@@ -131,37 +131,50 @@ export class SnipMateParser extends Parser {
         for (let i = 0; i < indent; i++) {
             tokens.push(new IndentToken());
         }
-
-        const textAndTabStop = this.splitByRegex(text, /\${[^}]*}/g);
-        for (let i = 0; i < textAndTabStop.length; i++) {
-            if (i % 2 === 0) {
-                const textText = textAndTabStop[i];
-                tokens.push(...this.tokenizeMirrorText(textText));
-            } else {
-                const tabStopText = textAndTabStop[i];
-                const match = tabStopText.match(/^\$\{([^:]*)(?::(.*))?\}$/) as RegExpMatchArray;
-                const tabstopId = match[1];
-                if (!tabstops.has(tabstopId)) {
-                    const placeholder = match[2] ? this.tokenizeMirrorText(match[2]) : [];
-                    tokens.push(new TabStopToken(match[1], placeholder));
-                    tabstops.add(tabstopId);
-                } else {
-                    tokens.push(new MirrorToken(match[1]));
-                }
-            }
-        }
+        tokens.push(...this.tokenize(text, tabstops));
         return new SnippetLine(tokens);
     }
 
-    private tokenizeMirrorText(tokenText: string): SnippetToken[] {
-        const tokens: SnippetToken[] = [];
-        const textAndMirror = this.splitByRegex(tokenText, /\$\d+/g);
-        for (let j = 0; j < textAndMirror.length; j++) {
-            const text = textAndMirror[j];
-            if (j % 2 === 0) {
-                tokens.push(new TextToken(text));
+    private tokenize(text: string, tabstops: Set<string>): SnippetToken[] {
+        const tokens = [];
+        const textAndTabStop = this.splitByRegex(text, /\${[^}]*}/g);  // FIXME: 入れ子 ${0:${VISUAL}}
+        for (let i = 0; i < textAndTabStop.length; i++) {
+            const tokenText = textAndTabStop[i];
+            if (i % 2 === 0) {
+                tokens.push(...this.tokenizeText(tokenText));
             } else {
-                tokens.push(new MirrorToken(text.substr(1)));
+                const match = tokenText.match(/^\$\{([^:]*)(?::(.*))?\}$/) as RegExpMatchArray;
+                const tabstopId = match[1];
+                if (!tabstops.has(tabstopId)) {
+                    const placeholder = match[2] ? this.tokenizeText(match[2]) : [];
+                    tokens.push(new TabStopToken(match[1], placeholder));
+                    tabstops.add(tabstopId);
+                } else {
+                    tokens.push(new MirrorToken(tokenText));
+                }
+            }
+        }
+        return tokens;
+    }
+
+    private tokenizeText(text: string): SnippetToken[] {
+        const tokens: SnippetToken[] = [];
+        const textAndCode = this.splitByRegex(text, /`[^`]*`/g);
+        for (let codeI = 0; codeI < textAndCode.length; codeI++) {
+            const tokenText = textAndCode[codeI];
+            if (codeI % 2 === 1) {
+                const script = tokenText.substr(1, tokenText.length - 2);
+                tokens.push(new VimToken(script));
+            } else {
+                const textAndMirror = this.splitByRegex(tokenText, /\$\d+/g);
+                for (let mirrorI = 0; mirrorI < textAndMirror.length; mirrorI++) {
+                    const tokenText = textAndMirror[mirrorI];
+                    if (mirrorI % 2 === 0) {
+                        tokens.push(new TextToken(tokenText));
+                    } else {
+                        tokens.push(new MirrorToken(tokenText.substr(1)));
+                    }
+                }
             }
         }
         return tokens;

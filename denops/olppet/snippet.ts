@@ -211,9 +211,12 @@ export abstract class SnippetToken {
         return [];
     }
 
+    public hasToken(token: SnippetToken): boolean {
+        return token === this;
+    }
+
     public abstract toText(): string;
     public abstract createEmpty(tabstop: number): SnippetToken;
-    public abstract hasToken(token: SnippetToken): boolean;
 }
 
 
@@ -229,10 +232,6 @@ export class IndentToken extends SnippetToken {
     public createEmpty(tabstop: number): IndentToken {
         return new IndentToken(tabstop);
     }
-
-    public hasToken(token: SnippetToken): boolean {
-        return token === this;
-    }
 }
 
 
@@ -247,10 +246,6 @@ export class TextToken extends SnippetToken {
 
     public createEmpty(tabstop: number): TextToken {
         return new TextToken(this.text, tabstop);
-    }
-
-    public hasToken(token: SnippetToken): boolean {
-        return token === this;
     }
 }
 
@@ -349,8 +344,19 @@ export class MirrorToken extends SnippetToken {
     public createEmpty(tabstop: number): MirrorToken {
         return new MirrorToken(this.tokenId, tabstop);
     }
+}
 
-    public hasToken(token: SnippetToken): boolean {
-        return token === this;
+
+export class VimToken extends SnippetToken {
+    public constructor(public readonly script: string, tabstop=0) {
+        super(tabstop);
+    }
+
+    public toText(): string {
+        return '[CODE]';
+    }
+
+    public createEmpty(tabstop: number): VimToken {
+        return new VimToken(this.script, tabstop);
     }
 }

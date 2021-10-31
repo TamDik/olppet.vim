@@ -39,19 +39,19 @@ export class SnippetEngine {
     private async setMappingConfig(denops: Denops, config: Config): Promise<void> {
         await batch(denops, async (denops) => {
             for (const key of config.expand) {
-                await denops.cmd(this.olppetMapping(key, 'expand'));
+                await denops.cmd(this.olppetMapping(denops, key, 'expand'));
             }
             for (const key of config.jump_forward) {
-                await denops.cmd(this.olppetMapping(key, 'jumpForward'));
+                await denops.cmd(this.olppetMapping(denops, key, 'jumpForward'));
             }
             for (const key of config.jump_backward) {
-                await denops.cmd(this.olppetMapping(key, 'jumpBackward'));
+                await denops.cmd(this.olppetMapping(denops, key, 'jumpBackward'));
             }
         });
     }
 
-    private olppetMapping(key: string, method: 'expand'|'jumpForward'|'jumpBackward'): string {
-        return `inoremap <silent> ${key} <C-c>:call denops#request('olppet', '${method}', [])<CR>`;
+    private olppetMapping(denops: Denops, key: string, method: 'expand'|'jumpForward'|'jumpBackward'): string {
+        return `inoremap <silent> ${key} <C-c>:call denops#request('${denops.name}', '${method}', [])<CR>`;
     }
 
     private async loadSnippetsIfNeeds(denops: Denops): Promise<void> {
@@ -93,12 +93,12 @@ export class SnippetEngine {
         const insertResult = await this.insertSnippet(denops);
         if (insertResult) {
             this.currentSnippet = insertResult;
-            const position = this.currentSnippet.getNextTabStopPosition();
             let cursor: {lnum: number, col: number};
-            if (position) {
-                cursor = position;
+            if (this.currentSnippet.hasTabStop()) {
+                cursor = this.currentSnippet.getCurrentTabStopPosition();
             } else {
                 cursor = this.currentSnippet.getEndPosition();
+                this.currentSnippet = null;
             }
             await denops.call('cursor', cursor.lnum, Math.max(1, cursor.col));
             await denops.call('feedkeys', cursor.col === 0 ? 'i' : 'a');
@@ -138,30 +138,19 @@ export class SnippetEngine {
     }
 
     public async jumpForward(denops: Denops): Promise<void> {
-        await this.moveTo(denops, 'next');
+        if (this.currentSnippet && this.currentSnippet.goForward()) {
+            const {lnum, col} = this.currentSnippet.getCurrentTabStopPosition();
+            await denops.call('cursor', lnum, col);
+        }
         await denops.call('feedkeys', 'a');
     }
 
     public async jumpBackward(denops: Denops): Promise<void> {
-        await this.moveTo(denops, 'prev');
+        if (this.currentSnippet && this.currentSnippet.goBack()) {
+            const {lnum, col} = this.currentSnippet.getCurrentTabStopPosition();
+            await denops.call('cursor', lnum, col);
+        }
         await denops.call('feedkeys', 'a');
-    }
-
-    private async moveTo(denops: Denops, tabstop: 'next' | 'prev'): Promise<void> {
-        if (!this.currentSnippet) {
-            return;
-        }
-        let position;
-        if (tabstop === 'next') {
-            position = this.currentSnippet.getNextTabStopPosition();
-        } else {
-            position = this.currentSnippet.getPrevTabStopPosition();
-        }
-        if (!position) {
-            return;
-        }
-        const {lnum, col} = position;
-        await denops.call('cursor', lnum, col);
     }
 
     public leaveInsertMode(): void {
@@ -173,12 +162,14 @@ export class SnippetEngine {
             return;
         }
         const currentPos = this.currentSnippet.getCurrentTabStopPosition();
-        if (!currentPos) {
-            return;
-        }
         const col: number = await denops.call('col', ".") as number;
         const moved = col - currentPos.col - 1;
         if (moved === 0) {
+            return;
+        }
+        const lnum: number = await denops.call('line', '.') as number;
+        if (currentPos.lnum !== lnum) {
+            this.currentSnippet = null;
             return;
         }
         const line: string = await denops.call('getline', '.') as string;

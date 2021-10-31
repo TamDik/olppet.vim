@@ -3,7 +3,7 @@ function! olppet#config(arg) abort
   call s:string_to_list(a:arg, 'expand')
   call s:string_to_list(a:arg, 'jump_forward')
   call s:string_to_list(a:arg, 'jump_backward')
-  call s:notify("config", [a:arg])
+  call s:notify('config', [a:arg])
 endfunction
 
 

@@ -12,10 +12,7 @@ export class Snippet {
                        public readonly description: string|null,
                        private top_: number=0,
                        private head: string='') {
-    }
-
-    private get left(): number {
-        return this.head.length;
+        this.walkTokens();
     }
 
     private walkTokens(): void {
@@ -32,7 +29,11 @@ export class Snippet {
         }
         const mirrorTokens: MirrorToken[] = [];
         for (const line of this.lines) {
-            this.tabStops.push(line.getTokens(isTabStop));
+            const tabStops = line.getTokens(isTabStop);
+            if (!this.currentTabStop && tabStops.length) {
+                this.currentTabStop = tabStops[0];
+            }
+            this.tabStops.push(tabStops);
             mirrorTokens.push(...line.getTokens(isMirror));
         }
 
@@ -46,9 +47,17 @@ export class Snippet {
         }
     }
 
+    private get left(): number {
+        return this.head.length;
+    }
+
+    public hasTabStop(): boolean {
+        return this.currentTabStop !== null;
+    }
+
     public getCurrentTabStopText(): string | null {
         if (!this.currentTabStop) {
-            return null;
+            throw Error('error');
         }
         return this.currentTabStop.getText();
     }
@@ -60,32 +69,47 @@ export class Snippet {
         this.currentTabStop.setText(text);
     }
 
-    public getCurrentTabStopPosition(): Position | null {
-        this.walkTokens();
+    public getCurrentTabStopPosition(): Position {
         if (!this.currentTabStop) {
-            return null;
+            throw Error('error');
         }
-        return this.getTabStopPosition(this.currentTabStop);
+
+        let lnum = 0;
+        for (const len = this.lines.length; lnum < len; lnum++) {
+            const line = this.lines[lnum];
+            if (!line.hasToken(this.currentTabStop)) {
+                continue;
+            }
+            let col = 0;
+            const tokens = line.tokens;
+            for (const token of tokens) {
+                if (token.hasToken(this.currentTabStop)) {
+                    col += token.getCursorCol(this.currentTabStop);
+                    break;
+                }
+                col += token.toText().length;
+            }
+            return {lnum: this.top_ + lnum, col: this.left + col};
+        }
+        throw Error('error');
     }
 
-    public getNextTabStopPosition(): Position | null {
-        this.walkTokens();
+    public goForward(): boolean {
         const nextTabStop = this.getNextTabStop();
         if (!nextTabStop) {
-            return null;
+            return false;
         }
         this.currentTabStop = nextTabStop;
-        return this.getTabStopPosition(this.currentTabStop);
+        return true;
     }
 
-    public getPrevTabStopPosition(): Position | null {
-        this.walkTokens();
+    public goBack(): boolean {
         const prevTabStop = this.getPrevTabStop();
         if (!prevTabStop) {
-            return null;
+            return false;
         }
         this.currentTabStop = prevTabStop;
-        return this.getTabStopPosition(this.currentTabStop);
+        return true;
     }
 
     public getStartPosition(): Position {
@@ -127,29 +151,7 @@ export class Snippet {
         return firstTabStop;
     }
 
-    private getTabStopPosition(tabStop: TabStopToken): Position | null {
-        let lnum = 0;
-        for (const len = this.lines.length; lnum < len; lnum++) {
-            const line = this.lines[lnum];
-            if (!line.hasToken(tabStop)) {
-                continue;
-            }
-            let col = 0;
-            const tokens = line.tokens;
-            for (const token of tokens) {
-                if (token.hasToken(tabStop)) {
-                    col += token.getCursorCol(tabStop);
-                    break;
-                }
-                col += token.toText().length;
-            }
-            return {lnum: this.top_ + lnum, col: this.left + col};
-        }
-        return null;
-    }
-
     public toText(): string[] {
-        this.walkTokens();
         const spaces = ' '.repeat(this.left)
         return this.lines.map((line, i) => line.toText(i === 0 ? this.head : spaces));
     }

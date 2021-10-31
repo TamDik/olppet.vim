@@ -30,6 +30,6 @@ export async function main(denops: Denops): Promise<void> {
         }
     };
     await denops.cmd('doautocmd <nomodeline> User OlppetReady');
-    await autocmd.define(denops, 'InsertLeave', '*', 'call denops#request("olppet", "insertLeave", [])');
-    await autocmd.define(denops, ['TextChangedI', 'TextChangedP'], '*', 'call denops#request("olppet", "textChanged", [])');
+    await autocmd.define(denops, 'InsertLeave', '*', `call denops#request('${denops.name}', 'insertLeave', [])`);
+    await autocmd.define(denops, ['TextChangedI', 'TextChangedP'], '*', `call denops#request('${denops.name}', 'textChanged', [])`);
 }

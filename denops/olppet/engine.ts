@@ -1,5 +1,5 @@
 import { Denops, batch, option } from './deps.ts';
-import { Snippet } from './snippet.ts';
+import { Snippet, Position } from './snippet.ts';
 import { SnipMateParser } from './parser.ts';
 import { Config } from './types.ts';
 
@@ -93,19 +93,29 @@ export class SnippetEngine {
         const insertResult = await this.insertSnippet(denops);
         if (insertResult) {
             this.currentSnippet = insertResult;
-            let cursor: {lnum: number, col: number};
-            if (this.currentSnippet.hasTabStop()) {
-                cursor = this.currentSnippet.getCurrentTabStopPosition();
-            } else {
-                cursor = this.currentSnippet.getEndPosition();
+            await this.moveCursorToTheFirstTabStop(denops, this.currentSnippet);
+            await this.currentSnippet.executeVimScript(denops);
+            await this.updateWithSnippetLines(denops, this.currentSnippet);
+            const {col} = await this.moveCursorToTheFirstTabStop(denops, this.currentSnippet);
+            if (!this.currentSnippet.hasTabStop()) {
                 this.currentSnippet = null;
             }
-            await denops.call('cursor', cursor.lnum, Math.max(1, cursor.col));
-            await denops.call('feedkeys', cursor.col === 0 ? 'i' : 'a');
+            await denops.call('feedkeys', col === 0 ? 'i' : 'a');
         } else {
             const col: number = await denops.call('col', "'^") as number;
             await denops.call('feedkeys', col === 1 ? 'i' : 'a');
         }
+    }
+
+    private async moveCursorToTheFirstTabStop(denops: Denops, snippet: Snippet): Promise<Position> {
+        let cursor: Position;
+        if (snippet.hasTabStop()) {
+            cursor = snippet.getCurrentTabStopPosition();
+        } else {
+            cursor = snippet.getEndPosition();
+        }
+        await denops.call('cursor', cursor.lnum, Math.max(1, cursor.col));
+        return cursor;
     }
 
     private async insertSnippet(denops: Denops): Promise<Snippet | null> {
@@ -193,11 +203,15 @@ export class SnippetEngine {
         }
 
         // update
-        const snippetLines = this.currentSnippet.toText();
-        const top_ = this.currentSnippet.getStartPosition().lnum;
+        await this.updateWithSnippetLines(denops, this.currentSnippet);
+    }
+
+    private async updateWithSnippetLines(denops: Denops, snippet: Snippet): Promise<void> {
+        const snippetLines = snippet.toText();
+        const {lnum} = snippet.getStartPosition();
         for (let i = 0; i < snippetLines.length; i++) {
             const snippetLine = snippetLines[i];
-            await denops.call('setline', top_ + i, snippetLine);
+            await denops.call('setline', lnum + i, snippetLine);
         }
     }
 

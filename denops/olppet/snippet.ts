@@ -1,4 +1,7 @@
-type Position = {
+import { Denops, helper, variable } from './deps.ts';
+
+
+export type Position = {
     lnum: number,
     col: number
 }
@@ -49,6 +52,17 @@ export class Snippet {
 
     private get left(): number {
         return this.head.length;
+    }
+
+    public async executeVimScript(denops: Denops): Promise<void> {
+        function isVimToken(token: SnippetToken): token is VimToken {
+            return token instanceof VimToken;
+        }
+        for (const line of this.lines) {
+            for (const token of line.getTokens(isVimToken)) {
+                await token.execute(denops);
+            }
+        }
     }
 
     public hasTabStop(): boolean {
@@ -348,12 +362,18 @@ export class MirrorToken extends SnippetToken {
 
 
 export class VimToken extends SnippetToken {
+    private text: string | null = null;
     public constructor(public readonly script: string, tabstop=0) {
         super(tabstop);
     }
 
     public toText(): string {
-        return '[CODE]';
+        return this.text !== null ? this.text : this.script;
+    }
+
+    public async execute(denops: Denops): Promise<void> {
+        await helper.execute(denops, `let g:_olppet_temp = ${this.script}`);
+        this.text = await variable.globals.get(denops, '_olppet_temp') as string;
     }
 
     public createEmpty(tabstop: number): VimToken {

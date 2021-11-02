@@ -4,6 +4,7 @@ export * as helper from "https://deno.land/x/denops_std@v2.0.0/helper/mod.ts";
 export * as option from "https://deno.land/x/denops_std@v2.0.0/option/mod.ts";
 export * as autocmd from "https://deno.land/x/denops_std@v2.0.0/autocmd/mod.ts";
 export * as mapping from "https://deno.land/x/denops_std@v2.0.0/mapping/mod.ts";
+export * as variable from "https://deno.land/x/denops_std@v2.0.0/variable/mod.ts";
 export * as unknownutil from "https://deno.land/x/unknownutil@v1.1.4/mod.ts";
 export { expandGlob } from "https://deno.land/std@0.112.0/fs/mod.ts";
 export { BaseSource } from "https://deno.land/x/ddc_vim@v0.17.0/types.ts";

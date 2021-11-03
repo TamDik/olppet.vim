@@ -159,9 +159,9 @@ export class SnipMateParser extends Parser {
 
     private tokenizeText(text: string): SnippetToken[] {
         const tokens: SnippetToken[] = [];
-        const textAndCode = this.splitByRegex(text, /`[^`]*`/g);
+        const textAndCode = this.splitByRegex(text, /(?<!\\)`[^`]*(?<!\\)`/g);
         for (let codeI = 0; codeI < textAndCode.length; codeI++) {
-            const tokenText = textAndCode[codeI];
+            const tokenText = textAndCode[codeI].replace(/\\`/g, '`');
             if (codeI % 2 === 1) {
                 const script = tokenText.substr(1, tokenText.length - 2);
                 tokens.push(new VimToken(script));

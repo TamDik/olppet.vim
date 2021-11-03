@@ -150,9 +150,12 @@ export class SnippetEngine {
     public async jumpForward(denops: Denops): Promise<void> {
         if (this.currentSnippet && this.currentSnippet.goForward()) {
             const {lnum, col} = this.currentSnippet.getCurrentTabStopPosition();
-            await denops.call('cursor', lnum, col);
+            await denops.call('cursor', lnum, Math.max(1, col));
+            await denops.call('feedkeys', col === 0 ? 'i' : 'a')
+        } else {
+            const col: number = await denops.call('col', "'^") as number;
+            await denops.call('feedkeys', col === 1 ? 'i' : 'a');
         }
-        await denops.call('feedkeys', 'a');
     }
 
     public async jumpBackward(denops: Denops): Promise<void> {

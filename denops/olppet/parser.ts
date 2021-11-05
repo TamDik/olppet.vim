@@ -6,6 +6,8 @@ abstract class Parser {
     public constructor(protected readonly filepath: string) {
     }
 
+    public abstract getFilepaths(): string[];
+
     public async parse(): Promise<Snippet[]> {
         const text = await Deno.readTextFile(this.filepath);
         return this.parseText(text);
@@ -19,6 +21,10 @@ export class SnipMateParser extends Parser {
     private extends: string[] = [];
     public constructor(filepath: string, private readonly directory: string) {
         super(filepath);
+    }
+
+    public getFilepaths(): string[] {
+        return [this.filepath, ...this.extends];
     }
 
     public static async fetchSnippetsFiles(directory: string, scope: string): Promise<string[]> {

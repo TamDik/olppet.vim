@@ -26,6 +26,10 @@ olppet#config(dict)                                          *olppet#config()*
         The key is {option-name} and the value is {value}. See
         |olppet-options| for all {option-name}.
 
+                                          *olppet#loaded_snippet_file_paths()*
+olppet#loaded_snippet_file_paths()
+        Get the file paths of the loaded snippets.
+
 ------------------------------------------------------------------------------
 OPTIONS                                                       *olppet-options*
 

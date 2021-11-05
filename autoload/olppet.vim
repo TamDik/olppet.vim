@@ -7,6 +7,11 @@ function! olppet#config(arg) abort
 endfunction
 
 
+function! olppet#loaded_snippet_file_paths() abort
+  return denops#request('olppet', 'getLoadedFilePaths', [])
+endfunction
+
+
 function! s:string_to_list(arg, key) abort
   let l:value = get(a:arg, a:key, [])
   if type(l:value) == v:t_string

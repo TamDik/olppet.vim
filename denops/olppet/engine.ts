@@ -5,7 +5,8 @@ import { Config } from './types.ts';
 
 
 export class SnippetEngine {
-    private readonly snippet_directories: string[] = [];
+    private readonly snippetDirectories: string[] = [];
+    public readonly loadedSnippetFilePaths: string[] = [];
     private readonly snippets: Map<string, Snippet> = new Map();
     private filetype = '';
     private currentSnippet: Snippet | null = null;
@@ -19,9 +20,9 @@ export class SnippetEngine {
         for (const snippetPath of config.snippet) {
             const directoryPath = await this.expandRepoDirectory(denops, snippetPath);
             if (directoryPath) {
-                this.snippet_directories.push(directoryPath);
+                this.snippetDirectories.push(directoryPath);
             } else {
-                this.snippet_directories.push(snippetPath);
+                this.snippetDirectories.push(snippetPath);
             }
         }
     }
@@ -65,13 +66,15 @@ export class SnippetEngine {
 
     private async loadSnippets(denops: Denops): Promise<void> {
         this.snippets.clear();
-        for (const directoryPath of this.snippet_directories) {
+        this.loadedSnippetFilePaths.length = 0;
+        for (const directoryPath of this.snippetDirectories) {
             for (const snippetPath of await this.fetchSnippetsFiles(denops, directoryPath)) {
                 const parser = new SnipMateParser(snippetPath, directoryPath);
                 const snippets = await parser.parse();
                 for (const snippet of snippets) {
                     this.snippets.set(snippet.trigger, snippet);
                 }
+                this.loadedSnippetFilePaths.push(...parser.getFilepaths());
             }
         }
     }

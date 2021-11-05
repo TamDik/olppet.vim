@@ -25,6 +25,9 @@ export async function main(denops: Denops): Promise<void> {
         async textChanged(): Promise<void> {
             await snippetEngine.textChanged(denops);
         },
+        getLoadedFilePaths(): Promise<string[]> {
+            return Promise.resolve(snippetEngine.loadedSnippetFilePaths);
+        },
         getCandidates(): Promise<{word: string, menu?: string}[]> {
             return snippetEngine.getCandidates(denops);
         }

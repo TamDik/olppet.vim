@@ -77,17 +77,26 @@ export class SnippetEngine {
         if (!actions) {
             return;
         }
-        if (actions.includes('expand') && await this.expand(denops)) {
-            // expanded
-        } else if (actions.includes('jumpForward') && await this.jumpForward(denops)) {
-            // jumped forward
-        } else if (actions.includes('jumpBackward') && await this.jumpBackward(denops)) {
-            // jumped back
-        } else {
-            // TODO: default behavior
+        let result = false;
+        if (actions.includes('expand')) {
+            result = await this.expand(denops);
+        }
+        if (!result && actions.includes('jumpForward')) {
+            result = await this.jumpForward(denops);
+        }
+        if (!result && actions.includes('jumpBackward')) {
+            result = await this.jumpBackward(denops);
         }
         const col: number = await denops.call('col', "'^") as number;
-        await denops.call('feedkeys', col === 1 ? 'i' : 'a');
+        let feedkeys = col === 1 ? 'i' : 'a';
+        if (!result) {
+            // tab behavior
+            if (key.toLowerCase() === '<tab>') {
+                const tabstop: number = await option.tabstop.get(denops);
+                feedkeys += ' '.repeat(tabstop - (col - 1) % tabstop);
+            }
+        }
+        await denops.call('feedkeys', feedkeys);
     }
 
     private async loadSnippetsIfNeeds(denops: Denops): Promise<void> {

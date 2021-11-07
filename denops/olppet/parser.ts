@@ -124,8 +124,12 @@ export class SnipMateParser extends Parser {
         for (const line of body) {
             snippetLine.push(this.parseLine(line, tabstops));
         }
-        const description = head.match(/(?<=^snippet\s+\S+\s+").*(?=")/);
-        return new Snippet(trigger[0], snippetLine, description ? description[0] : null);
+        const description = head.match(/(?<=^snippet\s+\S+\s+)(?:"(.*)"|(.*)$)/);
+        if (description) {
+            return new Snippet(trigger[0], snippetLine, description[1] ? description[1] : description[2]);
+        } else {
+            return new Snippet(trigger[0], snippetLine, null);
+        }
     }
 
     private parseLine(line: string, tabstops: Set<string>): SnippetLine {

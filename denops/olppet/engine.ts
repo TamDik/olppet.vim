@@ -77,24 +77,27 @@ export class SnippetEngine {
         if (!actions) {
             return;
         }
-        let result = false;
         if (actions.includes('expand')) {
-            result = await this.expand(denops);
+            if (await this.expand(denops)) {
+                return;
+            }
         }
-        if (!result && actions.includes('jumpForward')) {
-            result = await this.jumpForward(denops);
+        if (actions.includes('jumpForward')) {
+            if (await this.jumpForward(denops)) {
+                return;
+            }
         }
-        if (!result && actions.includes('jumpBackward')) {
-            result = await this.jumpBackward(denops);
+        if (actions.includes('jumpBackward')) {
+            if (await this.jumpBackward(denops)) {
+                return;
+            }
         }
         const col: number = await denops.call('col', "'^") as number;
         let feedkeys = col === 1 ? 'i' : 'a';
-        if (!result) {
-            // tab behavior
-            if (key.toLowerCase() === '<tab>') {
-                const tabstop: number = await option.tabstop.get(denops);
-                feedkeys += ' '.repeat(tabstop - (col - 1) % tabstop);
-            }
+        // tab behavior
+        if (key.toLowerCase() === '<tab>') {
+            const tabstop: number = await option.tabstop.get(denops);
+            feedkeys += ' '.repeat(tabstop - (col - 1) % tabstop);
         }
         await denops.call('feedkeys', feedkeys);
     }
@@ -149,6 +152,8 @@ export class SnippetEngine {
         if (!this.currentSnippet.hasTabStop()) {
             this.currentSnippet = null;
         }
+        const col: number = await denops.call('col', '.') as number;
+        await denops.call('feedkeys', col === 1 ? 'i' : 'a');
         return true;
     }
 
@@ -196,6 +201,7 @@ export class SnippetEngine {
         if (this.currentSnippet && this.currentSnippet.goForward()) {
             const {lnum, col} = this.currentSnippet.getCurrentTabStopPosition();
             await denops.call('cursor', lnum, Math.max(1, col));
+            await denops.call('feedkeys', col === 0 ? 'i' : 'a');
             return true;
         } else {
             return false;
@@ -206,6 +212,7 @@ export class SnippetEngine {
         if (this.currentSnippet && this.currentSnippet.goBack()) {
             const {lnum, col} = this.currentSnippet.getCurrentTabStopPosition();
             await denops.call('cursor', lnum, Math.max(1, col));
+            await denops.call('feedkeys', col === 0 ? 'i' : 'a');
             return true;
         } else {
             return false;

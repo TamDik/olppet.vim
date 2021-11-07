@@ -285,7 +285,7 @@ export class TabStopToken extends SnippetToken {
             return this.inputText;
         }
         if (this.placeholder.length === 0) {
-            return `$\{${this.tokenId}}`;
+            return '';
         }
         return this.placeholder.map(token => token.toText()).join('');
     }
@@ -352,7 +352,7 @@ export class MirrorToken extends SnippetToken {
         if (this.targetTabStopToken) {
             return this.targetTabStopToken.toText();
         }
-        return `$\{${this.tokenId}}`;
+        return '';
     }
 
     public createEmpty(tabstop: number): MirrorToken {

@@ -142,8 +142,9 @@ export class SnipMateParser extends Parser {
     }
 
     private tokenize(text: string, tabstops: Set<string>): SnippetToken[] {
+        text = text.replace(/\${VISUAL(:([^)]*))?}/g, '$2');  // remove ${VISUAL}
         const tokens = [];
-        const textAndTabStop = this.splitByRegex(text, /\${[^}]*}/g);  // FIXME: 入れ子 ${0:${VISUAL}}
+        const textAndTabStop = this.splitByRegex(text, /\${[^}]*}/g);
         for (let i = 0; i < textAndTabStop.length; i++) {
             const tokenText = textAndTabStop[i];
             if (i % 2 === 0) {

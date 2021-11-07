@@ -9,14 +9,8 @@ export async function main(denops: Denops): Promise<void> {
         async config(args): Promise<void> {
             await snippetEngine.setConfig(denops, args as Config);
         },
-        async expand(): Promise<void> {
-            await snippetEngine.expand(denops);
-        },
-        async jumpForward(): Promise<void> {
-            await snippetEngine.jumpForward(denops);
-        },
-        async jumpBackward(): Promise<void> {
-            await snippetEngine.jumpBackward(denops);
+        async snippetAction(key): Promise<void> {
+            await snippetEngine.snippetAction(denops, key as string);
         },
         insertLeave(): Promise<void> {
             snippetEngine.leaveInsertMode();

@@ -13,7 +13,7 @@ This plugin requires [denops.vim](https://github.com/vim-denops/denops.vim).
 call olppet#config({
     \ 'snippet': ['honza/vim-snippets'],
     \ 'expand': '<Tab>',
-    \ 'jump_forward': '<C-f>',
-    \ 'jump_backward': '<C-b>',
+    \ 'jump_forward': '<Tab>',
+    \ 'jump_backward': '<S-Tab>',
     \ })
 ```

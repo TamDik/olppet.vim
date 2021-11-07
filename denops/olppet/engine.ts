@@ -4,12 +4,15 @@ import { SnipMateParser } from './parser.ts';
 import { Config } from './types.ts';
 
 
+type SnippetAction = 'expand' | 'jumpForward' | 'jumpBackward';
+
 export class SnippetEngine {
     private readonly snippetDirectories: string[] = [];
     public readonly loadedSnippetFilePaths: string[] = [];
     private readonly snippets: Map<string, Snippet> = new Map();
     private filetype = '';
     private currentSnippet: Snippet | null = null;
+    private readonly mapping: Map<string, SnippetAction[]> = new Map();
 
     public async setConfig(denops: Denops, config: Config): Promise<void> {
         await this.setSnippetConfig(denops, config);
@@ -38,21 +41,53 @@ export class SnippetEngine {
     }
 
     private async setMappingConfig(denops: Denops, config: Config): Promise<void> {
+        for (const key of config.expand) {
+            if (!this.mapping.has(key)) {
+                this.mapping.set(key, []);
+            }
+            this.mapping.get(key)!.push('expand');
+        }
+        for (const key of config.jump_forward) {
+            if (!this.mapping.has(key)) {
+                this.mapping.set(key, []);
+            }
+            this.mapping.get(key)!.push('jumpForward');
+        }
+        for (const key of config.jump_backward) {
+            if (!this.mapping.has(key)) {
+                this.mapping.set(key, []);
+            }
+            this.mapping.get(key)!.push('jumpBackward');
+        }
         await batch(denops, async (denops) => {
-            for (const key of config.expand) {
-                await denops.cmd(this.olppetMapping(denops, key, 'expand'));
-            }
-            for (const key of config.jump_forward) {
-                await denops.cmd(this.olppetMapping(denops, key, 'jumpForward'));
-            }
-            for (const key of config.jump_backward) {
-                await denops.cmd(this.olppetMapping(denops, key, 'jumpBackward'));
+            for (const key of this.mapping.keys()) {
+                await denops.cmd(this.olppetMapping(denops, key));
             }
         });
     }
 
-    private olppetMapping(denops: Denops, key: string, method: 'expand'|'jumpForward'|'jumpBackward'): string {
-        return `inoremap <silent> ${key} <C-c>:call denops#request('${denops.name}', '${method}', [])<CR>`;
+    private olppetMapping(denops: Denops, key: string): string {
+        const escapedKey = escape(key);
+        return `inoremap <silent> ${key} <C-c>:call denops#request('${denops.name}', 'snippetAction', ['${escapedKey}'])<CR>`;
+    }
+
+    public async snippetAction(denops: Denops, escapedKey: string): Promise<void> {
+        const key = unescape(escapedKey);
+        const actions = this.mapping.get(key);
+        if (!actions) {
+            return;
+        }
+        if (actions.includes('expand') && await this.expand(denops)) {
+            // expanded
+        } else if (actions.includes('jumpForward') && await this.jumpForward(denops)) {
+            // jumped forward
+        } else if (actions.includes('jumpBackward') && await this.jumpBackward(denops)) {
+            // jumped back
+        } else {
+            // TODO: default behavior
+        }
+        const col: number = await denops.call('col', "'^") as number;
+        await denops.call('feedkeys', col === 1 ? 'i' : 'a');
     }
 
     private async loadSnippetsIfNeeds(denops: Denops): Promise<void> {
@@ -91,23 +126,21 @@ export class SnippetEngine {
         return snippetsFilepath;
     }
 
-    public async expand(denops: Denops): Promise<void> {
+    private async expand(denops: Denops): Promise<boolean> {
         await this.loadSnippetsIfNeeds(denops);
         const insertResult = await this.insertSnippet(denops);
-        if (insertResult) {
-            this.currentSnippet = insertResult;
-            await this.moveCursorToTheFirstTabStop(denops, this.currentSnippet);
-            await this.currentSnippet.executeVimScript(denops);
-            await this.updateWithSnippetLines(denops, this.currentSnippet);
-            const {col} = await this.moveCursorToTheFirstTabStop(denops, this.currentSnippet);
-            if (!this.currentSnippet.hasTabStop()) {
-                this.currentSnippet = null;
-            }
-            await denops.call('feedkeys', col === 0 ? 'i' : 'a');
-        } else {
-            const col: number = await denops.call('col', "'^") as number;
-            await denops.call('feedkeys', col === 1 ? 'i' : 'a');
+        if (!insertResult) {
+            return false;
         }
+        this.currentSnippet = insertResult;
+        await this.moveCursorToTheFirstTabStop(denops, this.currentSnippet);
+        await this.currentSnippet.executeVimScript(denops);
+        await this.updateWithSnippetLines(denops, this.currentSnippet);
+        await this.moveCursorToTheFirstTabStop(denops, this.currentSnippet);
+        if (!this.currentSnippet.hasTabStop()) {
+            this.currentSnippet = null;
+        }
+        return true;
     }
 
     private async moveCursorToTheFirstTabStop(denops: Denops, snippet: Snippet): Promise<Position> {
@@ -150,23 +183,24 @@ export class SnippetEngine {
         return emptySnippet;
     }
 
-    public async jumpForward(denops: Denops): Promise<void> {
+    private async jumpForward(denops: Denops): Promise<boolean> {
         if (this.currentSnippet && this.currentSnippet.goForward()) {
             const {lnum, col} = this.currentSnippet.getCurrentTabStopPosition();
             await denops.call('cursor', lnum, Math.max(1, col));
-            await denops.call('feedkeys', col === 0 ? 'i' : 'a')
+            return true;
         } else {
-            const col: number = await denops.call('col', "'^") as number;
-            await denops.call('feedkeys', col === 1 ? 'i' : 'a');
+            return false;
         }
     }
 
-    public async jumpBackward(denops: Denops): Promise<void> {
+    private async jumpBackward(denops: Denops): Promise<boolean> {
         if (this.currentSnippet && this.currentSnippet.goBack()) {
             const {lnum, col} = this.currentSnippet.getCurrentTabStopPosition();
-            await denops.call('cursor', lnum, col);
+            await denops.call('cursor', lnum, Math.max(1, col));
+            return true;
+        } else {
+            return false;
         }
-        await denops.call('feedkeys', 'a');
     }
 
     public leaveInsertMode(): void {

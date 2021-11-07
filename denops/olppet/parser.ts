@@ -156,7 +156,7 @@ export class SnipMateParser extends Parser {
                     tokens.push(new TabStopToken(match[1], placeholder));
                     tabstops.add(tabstopId);
                 } else {
-                    tokens.push(new MirrorToken(tokenText));
+                    tokens.push(new MirrorToken(tabstopId));
                 }
             }
         }

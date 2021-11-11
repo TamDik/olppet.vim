@@ -9,7 +9,7 @@ type SnippetAction = 'expand' | 'jumpForward' | 'jumpBackward';
 export class SnippetEngine {
     private readonly snippetDirectories: string[] = [];
     public readonly loadedSnippetFilePaths: string[] = [];
-    private readonly snippets: Map<string, Snippet> = new Map();
+    private readonly snippets: Map<string, {snippet: Snippet, pattern: RegExp}> = new Map();
     private filetype = '';
     private currentSnippet: Snippet | null = null;
     private readonly mapping: Map<string, SnippetAction[]> = new Map();
@@ -119,7 +119,9 @@ export class SnippetEngine {
                 const parser = new SnipMateParser(snippetPath, directoryPath);
                 const snippets = await parser.parse();
                 for (const snippet of snippets) {
-                    this.snippets.set(snippet.trigger, snippet);
+                    const escaped = snippet.trigger.replace(/[.*+?^=!:${}()|[\]\/\\]/g, '\\$&');
+                    const pattern = new RegExp('\\b' + escaped + '$');
+                    this.snippets.set(snippet.trigger, {snippet, pattern});
                 }
                 this.loadedSnippetFilePaths.push(...parser.getFilepaths());
             }
@@ -173,18 +175,18 @@ export class SnippetEngine {
         const col: number = await denops.call('col', "'^") as number;
         const currentLine: string = await denops.call('getline', line) as string;
         const head = currentLine.substr(0, col - 1);
-        const triggerMatch = head.match(/(?<=(?:\s|^))\S+$/);
-
-        if (!triggerMatch) {
-            return null;
+        let matched: Snippet | null = null;
+        for (const {snippet, pattern} of this.snippets.values()) {
+            if (head.match(pattern)) {
+                matched = snippet;
+            }
         }
-        const trigger = triggerMatch[0];
-        const snippet = this.snippets.get(trigger);
-        if (!snippet) {
+        if (!matched) {
             return null;
         }
         const tabstop: number = await option.tabstop.get(denops);
-        const emptySnippet = snippet.createEmpty(tabstop, line, head.substr(0, head.length - trigger.length));
+        const tail = currentLine.substr(col - 1);
+        const emptySnippet = matched.createEmpty(tabstop, line, head.substr(0, head.length - matched.trigger.length), tail);
         const snippetLines = emptySnippet.toText();
         for (let i = 0; i < snippetLines.length; i++) {
             const snippetLine = snippetLines[i];
@@ -274,7 +276,7 @@ export class SnippetEngine {
     public async getCandidates(denops: Denops): Promise<{word: string, menu?: string}[]> {
         await this.loadSnippetsIfNeeds(denops);
         const candidates = [];
-        for (const [trigger, snippet] of this.snippets) {
+        for (const [trigger, {snippet}] of this.snippets) {
             let candidate;
             if (snippet.description) {
                 candidate = {word: trigger, menu: snippet.description};

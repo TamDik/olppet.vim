@@ -13,8 +13,7 @@ export class Snippet {
     public constructor(public readonly trigger: string,
                        private readonly lines: SnippetLine[],
                        public readonly description: string|null,
-                       private top_: number=0,
-                       private head: string='') {
+                       private top_: number=0) {
         this.walkTokens();
     }
 
@@ -48,10 +47,6 @@ export class Snippet {
                 }
             }
         }
-    }
-
-    private get left(): number {
-        return this.head.length;
     }
 
     public async executeVimScript(denops: Denops): Promise<void> {
@@ -103,7 +98,7 @@ export class Snippet {
                 }
                 col += token.toText().length;
             }
-            return {lnum: this.top_ + lnum, col: this.left + col};
+            return {lnum: this.top_ + lnum, col};
         }
         throw Error('error');
     }
@@ -127,12 +122,12 @@ export class Snippet {
     }
 
     public getStartPosition(): Position {
-        return {lnum: this.top_, col: this.left};
+        return {lnum: this.top_, col: 0};
     }
 
     public getEndPosition(): Position {
         const lnum = this.top_ + this.lines.length - 1;
-        const col = this.lines[this.lines.length - 1].toText(' '.repeat(this.left)).length;
+        const col = this.lines[this.lines.length - 1].toText().length;
         return {lnum, col};
     }
 
@@ -166,13 +161,18 @@ export class Snippet {
     }
 
     public toText(): string[] {
-        const spaces = ' '.repeat(this.left)
-        return this.lines.map((line, i) => line.toText(i === 0 ? this.head : spaces));
+        return this.lines.map(line => line.toText());
     }
 
-    public createEmpty(tabstop: number, top_: number, head: string): Snippet {
-        const lines = this.lines.map(line => line.createEmpty(tabstop));
-        return new Snippet(this.trigger, lines, this.description, top_, head);
+    public createEmpty(tabstop: number, top_: number, head: string, tail: string): Snippet {
+        const lines = [];
+        for (let i = 0, len = this.lines.length; i < len; i++) {
+            const line = this.lines[i];
+            const headText: string = i === 0 ? head : ' '.repeat(head.length);
+            const tailText: string = i === len - 1 ? tail : '';
+            lines.push(line.createEmpty(tabstop, headText, tailText));
+        }
+        return new Snippet(this.trigger, lines, this.description, top_);
     }
 }
 
@@ -189,13 +189,17 @@ export class SnippetLine {
         return tokens;
     }
 
-    public toText(head: string): string {
+    public toText(): string {
         const text = this.tokens.map(token => token.toText()).join('');
-        return head + text;
+        return text;
     }
 
-    public createEmpty(tabstop: number): SnippetLine {
-        const tokens = this.tokens.map(token => token.createEmpty(tabstop));
+    public createEmpty(tabstop: number, head: string, tail: string): SnippetLine {
+        const tokens: SnippetToken[] = [new TextToken(head, tabstop)]
+        for (const token of this.tokens) {
+            tokens.push(token.createEmpty(tabstop));
+        }
+        tokens.push(new TextToken(tail));
         return new SnippetLine(tokens);
     }
 

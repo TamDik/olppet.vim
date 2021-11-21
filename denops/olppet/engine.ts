@@ -120,7 +120,7 @@ export class SnippetEngine {
                 const snippets = await parser.parse();
                 for (const snippet of snippets) {
                     const escaped = snippet.trigger.replace(/[.*+?^=!:${}()|[\]\/\\]/g, '\\$&');
-                    const pattern = new RegExp('\\b' + escaped + '$');
+                    const pattern = new RegExp('(?<!\\w)' + escaped + '$');
                     this.snippets.set(snippet.trigger, {snippet, pattern});
                 }
                 this.loadedSnippetFilePaths.push(...parser.getFilepaths());

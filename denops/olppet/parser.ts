@@ -134,7 +134,6 @@ export class SnipMateParser extends Parser {
 
     private parseLine(line: string, tabstops: Set<string>): SnippetLine {
         const tokens: SnippetToken[] = [];
-
         const indentMatch = line.match(/^(\t*)(.*)$/) as RegExpMatchArray;
         const text = indentMatch[2];
         const indent = Math.max(0, indentMatch[1].length - 1);

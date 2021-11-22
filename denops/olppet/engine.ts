@@ -141,6 +141,13 @@ export class SnippetEngine {
     }
 
     private async expand(denops: Denops): Promise<boolean> {
+        if (this.currentSnippet) {
+            const text = this.currentSnippet.getCurrentTabStopText();
+            if (text === null || text === '') {
+                return false;
+            }
+        }
+
         await this.loadSnippetsIfNeeds(denops);
         const insertResult = await this.insertSnippet(denops);
         if (!insertResult) {

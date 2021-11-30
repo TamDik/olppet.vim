@@ -96,10 +96,9 @@ export class SnippetEngine {
         let feedkeys = col === 1 ? 'i' : 'a';
         // tab behavior
         if (key.toLowerCase() === '<tab>') {
-            const tabstop: number = await option.tabstop.get(denops);
-            feedkeys += ' '.repeat(tabstop - (col - 1) % tabstop);
+            feedkeys += '\t';
         }
-        await denops.call('feedkeys', feedkeys);
+        await denops.call('feedkeys', feedkeys, 'n');
     }
 
     private async loadSnippetsIfNeeds(denops: Denops): Promise<void> {

@@ -32,6 +32,7 @@ export class SnipMateParser extends Parser {
             `${directory}/snippets/${scope}.snippets`,
             `${directory}/snippets/${scope}_*.snippets`,
             `${directory}/snippets/${scope}/*.snippets`,
+            `${directory}/snippets/_.snippets`,
         ];
 
         const snippetsFilepath = [];

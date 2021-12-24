@@ -68,7 +68,7 @@ export class SnippetEngine {
 
     private olppetMapping(denops: Denops, key: string): string {
         const escapedKey = escape(key);
-        return `inoremap <silent> ${key} <C-c>:call denops#request('${denops.name}', 'snippetAction', ['${escapedKey}'])<CR>`;
+        return `inoremap <silent> ${key} _<C-h><C-c>:call denops#request('${denops.name}', 'snippetAction', ['${escapedKey}'])<CR>`;
     }
 
     public async snippetAction(denops: Denops, escapedKey: string): Promise<void> {

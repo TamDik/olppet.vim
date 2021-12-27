@@ -172,7 +172,7 @@ export class SnippetEngine {
         } else {
             cursor = snippet.getEndPosition();
         }
-        await denops.call('cursor', cursor.lnum, Math.max(1, cursor.col));
+        await denops.call('cursor', cursor.lnum, Math.max(1, cursor.colBytes));
         return cursor;
     }
 
@@ -207,9 +207,9 @@ export class SnippetEngine {
 
     private async jumpForward(denops: Denops): Promise<boolean> {
         if (this.currentSnippet && this.currentSnippet.goForward()) {
-            const {lnum, col} = this.currentSnippet.getCurrentTabStopPosition();
-            await denops.call('cursor', lnum, Math.max(1, col));
-            await denops.call('feedkeys', col === 0 ? 'i' : 'a');
+            const {lnum, colBytes} = this.currentSnippet.getCurrentTabStopPosition();
+            await denops.call('cursor', lnum, Math.max(1, colBytes));
+            await denops.call('feedkeys', colBytes === 0 ? 'i' : 'a');
             return true;
         } else {
             return false;
@@ -218,9 +218,9 @@ export class SnippetEngine {
 
     private async jumpBackward(denops: Denops): Promise<boolean> {
         if (this.currentSnippet && this.currentSnippet.goBack()) {
-            const {lnum, col} = this.currentSnippet.getCurrentTabStopPosition();
-            await denops.call('cursor', lnum, Math.max(1, col));
-            await denops.call('feedkeys', col === 0 ? 'i' : 'a');
+            const {lnum, colBytes} = this.currentSnippet.getCurrentTabStopPosition();
+            await denops.call('cursor', lnum, Math.max(1, colBytes));
+            await denops.call('feedkeys', colBytes === 0 ? 'i' : 'a');
             return true;
         } else {
             return false;
@@ -237,7 +237,7 @@ export class SnippetEngine {
         }
         const currentPos = this.currentSnippet.getCurrentTabStopPosition();
         const col: number = await denops.call('col', ".") as number;
-        const moved = col - currentPos.col - 1;
+        const moved = col - currentPos.colBytes - 1;
         if (moved === 0) {
             return;
         }

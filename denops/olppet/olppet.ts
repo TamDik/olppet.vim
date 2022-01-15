@@ -122,6 +122,7 @@ export class Olppet {
             this.current.scripts[scriptId].value = await variable.globals.get(denops, '_olppet_temp');
         }
         await this.updateLines(denops);
+        this.jumpToFocus(denops);
         return true;
     }
 
@@ -248,11 +249,23 @@ export class Olppet {
             return;
         }
         this.current.lines[lnum - this.current.entoryPoint.lnum] = line;
-        if (col - 1 < focusTabStop. start.col || col - 1 > focusTabStop.end.col + delta) {
+        if (col - 1 < focusTabStop.start.col || col - 1 > focusTabStop.end.col + delta) {
             this.current = null;
             return;
         }
-        focusTabStop.text = line.substr(focusTabStop.start.col, focusTabStop.end.col + delta - focusTabStop.start.col);
+
+        // new text of the focused tabstop
+        let forcusTabStopTextBuffer = encodeURI(line);
+        for (let i = 0, len = focusTabStop.start.col; i < len; i++) {
+            forcusTabStopTextBuffer = forcusTabStopTextBuffer.substr(forcusTabStopTextBuffer[0] === '%' ? 3 : 1);
+        }
+        focusTabStop.text = '';
+        for (let i = 0, len = focusTabStop.end.col + delta - focusTabStop.start.col; i < len; i++) {
+            focusTabStop.text += forcusTabStopTextBuffer.substr(0, forcusTabStopTextBuffer[0] === '%' ? 3 : 1);
+            forcusTabStopTextBuffer = forcusTabStopTextBuffer.substr(forcusTabStopTextBuffer[0] === '%' ? 3 : 1);
+        }
+        focusTabStop.text = decodeURI(focusTabStop.text);
+
         await this.updateLines(denops);
     }
 

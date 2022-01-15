@@ -1,25 +1,30 @@
-function! olppet#config(arg) abort
-  call s:string_to_list(a:arg, 'snippet')
-  call s:string_to_list(a:arg, 'expand')
-  call s:string_to_list(a:arg, 'jump_forward')
-  call s:string_to_list(a:arg, 'jump_backward')
-  call s:notify('config', [a:arg])
+function! olppet#register_snippets(snippets) abort
+  let l:snippets = s:string_to_list(a:snippets)
+  call s:notify('registerSnippets', [l:snippets])
 endfunction
 
 
-function! olppet#loaded_snippet_file_paths() abort
-  return denops#request('olppet', 'getLoadedFilePaths', [])
+function! olppet#expand() abort
+  return s:request('expand', [], v:false)
 endfunction
 
 
-function! s:string_to_list(arg, key) abort
-  let l:value = get(a:arg, a:key, [])
-  if type(l:value) == v:t_string
-    let l:value = [l:value]
-  elseif type(l:value) != v:t_list
-    let l:value = []
+function! olppet#jump_forward() abort
+  return s:request('jumpForward', [], v:false)
+endfunction
+
+
+function! olppet#jump_backward() abort
+  return s:request('jumpBackward', [], v:false)
+endfunction
+
+
+function! s:string_to_list(arg) abort
+  if type(a:arg) == v:t_list
+    return a:arg
+  else
+    return [a:arg]
   endif
-  let a:arg[a:key] = l:value
 endfunction
 
 
@@ -37,5 +42,14 @@ function! s:notify(method, args) abort
     call denops#notify('olppet', a:method, a:args)
   else
     execute printf('autocmd User OlppetReady call denops#notify("olppet", "%s", %s)', a:method, string(a:args))
+  endif
+endfunction
+
+
+function! s:request(method, args, failed) abort
+  if s:denops_running()
+    return denops#request('olppet', a:method, a:args)
+  else
+    return a:failed
   endif
 endfunction

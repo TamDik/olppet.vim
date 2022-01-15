@@ -115,7 +115,7 @@ export class Olppet {
             this.current = null;
             return true;
         }
-        this.jumpToFocus(denops);
+        this.jumpToFocus(denops, false);
         for (const scriptId in this.current.scripts) {
             const {token} = this.current.scripts[scriptId];
             await helper.execute(denops, `let g:_olppet_temp = ${token.script}`);
@@ -177,7 +177,10 @@ export class Olppet {
         }
     }
 
-    private async jumpToFocus(denops: Denops): Promise<void> {
+    private async jumpToFocus(denops: Denops, select?: boolean): Promise<void> {
+        if (select === undefined) {
+            select = true;
+        }
         if (this.current === null) {
             return;
         }
@@ -185,17 +188,19 @@ export class Olppet {
         if (focusTabStop === null) {
             return;
         }
-        // TODO
-        // if (focusTabStop.text === null) {
-        //     await denops.call('feedkeys', '\u{1b}', 'n');  // Esc
-        //     await denops.call('cursor',  focusTabStop.start.lnum, focusTabStop.start.col + 1);
-        //     await helper.execute(denops, 'normal! v');
-        //     await denops.call('cursor', focusTabStop.end.lnum, focusTabStop.end.col);
-        //     await helper.execute(denops, 'normal! \u{07}');  // C-g
-        // } else {
-        //     await denops.call('cursor',  focusTabStop.end.lnum, focusTabStop.end.col + 1);
-        // }
-        await denops.call('cursor',  focusTabStop.end.lnum, focusTabStop.end.col + 1);
+        if (!select || focusTabStop.text !== null || focusTabStop.start.col === focusTabStop.end.col) {
+            await denops.call('cursor',  focusTabStop.end.lnum, focusTabStop.end.col + 1);
+        } else {
+            await denops.call('feedkeys', '\u{1b}', 'n');  // Esc
+            await denops.call('cursor', focusTabStop.start.lnum, focusTabStop.start.col + 1);
+            await helper.execute(denops, 'normal! v');
+            if (focusTabStop.token === this.current.tabstops[0].token) {
+                await denops.call('cursor', focusTabStop.end.lnum, focusTabStop.end.col);
+            } else {
+                await denops.call('cursor', focusTabStop.end.lnum, focusTabStop.end.col + 1);  // XXX
+            }
+            await helper.execute(denops, 'normal! \u{07}');  // C-g
+        }
     }
 
     public async jumpForward(denops: Denops): Promise<boolean> {

@@ -10,8 +10,9 @@ This plugin requires [denops.vim](https://github.com/vim-denops/denops.vim).
 ## Configuration
 
 ```vim
-Plugin 'TamDik/olppet.vim'
-Plugin 'honza/vim-snippets'
+Plug 'TamDik/olppet.vim'
+Plug 'vim-denops/denops.vim'
+Plug 'honza/vim-snippets'
 
 imap <tab> <Plug>(olppet-expand)
 imap <C-f> <Plug>(olppet-jump-forward)

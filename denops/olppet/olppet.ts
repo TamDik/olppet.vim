@@ -7,11 +7,13 @@ type CurrentSnippet = {
     head: string,
     tail: string,
     lines: string[],
+    prevLines: string[],
     scripts: Record<string, {token: VimToken, value: string | null}>,
     entoryPoint: {lnum: number, col: number},
     tabstops: CurrentSnippetTabStops[],
     focus: CurrentSnippetTabStops | null,
 };
+
 
 type CurrentSnippetTabStops = {
     token: TabStopToken,
@@ -19,6 +21,7 @@ type CurrentSnippetTabStops = {
     start: {lnum: number, col: number},
     end: {lnum: number, col: number},
 };
+
 
 export class Olppet {
     private snippets: Snippet[] = [];
@@ -81,10 +84,11 @@ export class Olppet {
             head: head.substr(0, head.length - triggerBytes),
             tail: currentLine.substr(col - 1),
             lines: [],
+            prevLines: [],
             scripts: {},
             entoryPoint: {
                 lnum: line,
-                col: col - triggerBytes
+                col: col - triggerBytes,
             },
             tabstops: matched.getAllTabStopTokens().map(token => ({
                 token, text: null,
@@ -135,9 +139,9 @@ export class Olppet {
             const snippetLine = this.current.snippet.lines[i];
             let line = '';
             if (i === 0) {
-                line += this.current.head
+                line += this.current.head;
             } else {
-                line += ' '.repeat(bytes(this.current.head))
+                line += ' '.repeat(bytes(this.current.head));
             }
             for (const token of snippetLine.tokens) {
                 const tokenText = await token.toText(denops, this.current);
@@ -173,7 +177,11 @@ export class Olppet {
             if (focusTabStop === null || focusTabStop.start.lnum !== lnum) {
                 line = line.trimEnd();
             }
+            if (line === this.current.prevLines[i]) {
+                continue;
+            }
             await denops.call('setline', lnum, line);
+            this.current.prevLines[i] = line;
         }
     }
 
@@ -249,7 +257,7 @@ export class Olppet {
             this.current = null;
             return;
         }
-        const delta = bytes(line) - bytes(this.current.lines[lnum - this.current.entoryPoint.lnum])
+        const delta = bytes(line) - bytes(this.current.lines[lnum - this.current.entoryPoint.lnum]);
         if (delta === 0) {
             return;
         }
@@ -487,7 +495,7 @@ class SnipMateParser implements Parser {
             }
             if (line.match(/^ *snippet/)) {
                 if (blockLines.length !== 0) {
-                    blocks.push(blockLines.join('\n'))
+                    blocks.push(blockLines.join('\n'));
                 }
                 blockLines = [line];
                 continue;
@@ -501,7 +509,7 @@ class SnipMateParser implements Parser {
             console.error('parse error', line);
         }
         if (blockLines.length !== 0) {
-            blocks.push(blockLines.join('\n'))
+            blocks.push(blockLines.join('\n'));
         }
         return {blocks, extendScopes};
     }

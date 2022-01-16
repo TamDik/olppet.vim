@@ -1,3 +1,33 @@
+let s:enabled = v:false
+
+
+function! olppet#enable() abort
+  if s:enabled
+    return
+  endif
+  let s:enabled = v:true
+
+  call s:notify('enable', [])
+  augroup olppet
+    autocmd!
+    autocmd TextChangedI,TextChangedP * call s:request('textChanged', [], '')
+  augroup END
+endfunction
+
+
+function! olppet#disable() abort
+  if !s:enabled
+    return
+  endif
+  let s:enabled = v:false
+
+  call s:notify('disable', [])
+  augroup olppet
+    autocmd!
+  augroup END
+endfunction
+
+
 function! olppet#register_snippets(snippets) abort
   let l:snippets = s:string_to_list(a:snippets)
   call s:notify('registerSnippets', [l:snippets])
@@ -5,16 +35,25 @@ endfunction
 
 
 function! olppet#expand() abort
+  if !s:enabled
+    return v:false
+  endif
   return s:request('expand', [], v:false)
 endfunction
 
 
 function! olppet#jump_forward() abort
+  if !s:enabled
+    return v:false
+  endif
   return s:request('jumpForward', [], v:false)
 endfunction
 
 
 function! olppet#jump_backward() abort
+  if !s:enabled
+    return v:false
+  endif
   return s:request('jumpBackward', [], v:false)
 endfunction
 

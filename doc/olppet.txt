@@ -22,6 +22,12 @@ INTERFACE                                                   *olppet-interface*
 ------------------------------------------------------------------------------
 FUNCTIONS                                                   *olppet-functions*
 
+olppet#enable()                                              *olppet#enable()*
+        Enable olppet.vim plugin.
+
+olppet#disable()                                             *olppet#disable()*
+        Disable olppet.vim plugin.
+
 olppet#register_snippets(string or string[])     *olppet#register_snippets()*
         Register snippets directory.
 

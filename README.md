@@ -13,9 +13,10 @@ This plugin requires [denops.vim](https://github.com/vim-denops/denops.vim).
 Plugin 'TamDik/olppet.vim'
 Plugin 'honza/vim-snippets'
 
-call olppet#register_snippets(['honza/vim-snippets'])
-
 imap <tab> <Plug>(olppet-expand)
-imap <C-b> <Plug>(olppet-jump-forward)
-imap <C-z> <Plug>(olppet-jump-backward)
+imap <C-f> <Plug>(olppet-jump-forward)
+imap <C-b> <Plug>(olppet-jump-backward)
+
+call olppet#register_snippets(['honza/vim-snippets'])
+call olppet#enable()
 ```

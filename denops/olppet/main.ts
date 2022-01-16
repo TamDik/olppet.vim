@@ -1,10 +1,20 @@
-import { Denops, autocmd, ensureArray, isString } from './deps.ts';
+import { Denops, ensureArray, isString } from './deps.ts';
 import { Olppet } from './olppet.ts';
 
 
 export async function main(denops: Denops): Promise<void> {
     const olppet = new Olppet();
+    let enabled = false;
     denops.dispatcher = {
+        enable(): Promise<void> {
+            enabled = true;
+            return Promise.resolve()
+        },
+        disable(): Promise<void> {
+            enabled = false;
+            olppet.leaveSnippet();
+            return Promise.resolve()
+        },
         registerSnippets(snippetNames): Promise<void> {
             ensureArray(snippetNames, isString);
             olppet.registerSnippets(denops, snippetNames);
@@ -23,9 +33,11 @@ export async function main(denops: Denops): Promise<void> {
             await olppet.textChanged(denops);
         },
         getCandidates(): Promise<{word: string, menu?: string}[]> {
+            if (!enabled) {
+                return Promise.resolve([]);
+            }
             return olppet.getCandidates(denops);
         }
     };
     await denops.cmd('doautocmd <nomodeline> User OlppetReady');
-    await autocmd.define(denops, ['TextChangedI', 'TextChangedP'], '*', `call denops#request('${denops.name}', 'textChanged', [])`);
 }

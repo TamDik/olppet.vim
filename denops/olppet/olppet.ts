@@ -64,6 +64,10 @@ export class Olppet {
         }
     }
 
+    public leaveSnippet(): void {
+        this.current = null;
+    }
+
     public async expand(denops: Denops): Promise<boolean> {
         const line: number = await denops.call('line', '.') as number;
         const col: number = await denops.call('col', '.') as number;
@@ -116,7 +120,7 @@ export class Olppet {
         }
 
         if (this.current.focus === null) {
-            this.current = null;
+            this.leaveSnippet();
             return true;
         }
         this.jumpToFocus(denops, false);
@@ -254,7 +258,7 @@ export class Olppet {
         const lnum: number = await denops.call('line', '.') as number;
         const line: string = await denops.call('getline', '.') as string;
         if (lnum < focusTabStop.start.lnum || lnum > focusTabStop.end.lnum) {
-            this.current = null;
+            this.leaveSnippet();
             return;
         }
         const delta = bytes(line) - bytes(this.current.lines[lnum - this.current.entoryPoint.lnum]);
@@ -263,7 +267,7 @@ export class Olppet {
         }
         this.current.lines[lnum - this.current.entoryPoint.lnum] = line;
         if (col - 1 < focusTabStop.start.col || col - 1 > focusTabStop.end.col + delta) {
-            this.current = null;
+            this.leaveSnippet();
             return;
         }
 

@@ -10,7 +10,8 @@ function! olppet#enable() abort
   call s:notify('enable', [])
   augroup olppet
     autocmd!
-    autocmd TextChangedI,TextChangedP * call s:request('textChanged', [], '')
+    autocmd TextChangedI,TextChangedP * call s:request('textChanged', [], v:null)
+    autocmd FileType * call s:notify('fileTypeChanged', [])
   augroup END
 endfunction
 

@@ -2,6 +2,73 @@ import { Denops, option, expandGlob, helper, variable } from './deps.ts';
 import { bytes } from './util.ts';
 
 
+type ParserType = 'SnipMate';
+
+
+class SnippetManager {
+    private readonly parsers: Record<ParserType, {parser: Parser, directories: string[]}> = {
+        SnipMate: {parser: new SnipMateParser(), directories: []},
+    };
+
+    private readonly filetypes: Record<string, {
+        snippets: Snippet[],
+        parsedDirectories: Set<string>,
+        parsedFiles: Set<string>
+    }> = {};
+
+    public async addPathOrRepoName(denops: Denops, parserType: ParserType, pathOrRepoName: string): Promise<void> {
+        const runtimepath = await option.runtimepath.getGlobal(denops);
+        for (const path of runtimepath.split(',')) {
+            if (path.endsWith('/' + pathOrRepoName)) {
+                this.parsers[parserType].directories.push(path);
+                return;
+            }
+        }
+        this.parsers[parserType].directories.push(pathOrRepoName);
+    }
+
+    public async getSnippets(denops: Denops, filetype: string): Promise<Snippet[]> {
+        await this.parseSnippetsIfNeeds(denops, filetype);
+        return this.filetypes[filetype].snippets;
+    }
+
+    private async parseSnippetsIfNeeds(denops: Denops, filetype: string): Promise<void> {
+        if (this.filetypes[filetype] === undefined) {
+            this.filetypes[filetype] = {
+                snippets: [],
+                parsedDirectories: new Set(),
+                parsedFiles: new Set(),
+            };
+        }
+        for (const [parserType, {parser, directories}] of Object.entries(this.parsers)) {
+            for (const directory of directories) {
+                if (this.filetypes[filetype].parsedDirectories.has(directory)) {
+                    continue;
+                }
+                for (const filepath of await parser.fetchSnippetsFiles(denops, directory)) {
+                    this.parseSnippet(parserType as ParserType, filetype, filepath);
+                }
+            }
+        }
+    }
+
+    private async parseSnippet(parserType: ParserType, filetype: string, filepath: string): Promise<void> {
+        const parsed = this.filetypes[filetype].parsedFiles;
+        if (parsed.has(filepath)) {
+            return;
+        }
+        parsed.add(filepath);
+        const {snippets, extendsFilepaths} = await this.parsers[parserType].parser.parse(filepath);
+        for (const snippet of snippets) {
+            this.filetypes[filetype].snippets.push(snippet);
+        }
+        for (const extendFilepath of extendsFilepaths) {
+            this.parseSnippet(parserType, filetype, extendFilepath);
+        }
+    }
+}
+
+
 type CurrentSnippet = {
     snippet: Snippet,
     head: string,
@@ -24,43 +91,24 @@ type CurrentSnippetTabStops = {
 
 
 export class Olppet {
-    private snippets: Snippet[] = [];
+    private snippetManager = new SnippetManager();
     private current: CurrentSnippet | null = null;
+    private filetype = '';
 
-    public async registerSnippets(denops: Denops, names: string[]): Promise<void> {
-        const runtimepath = (await option.runtimepath.getGlobal(denops)).split(',');
-        const parsers = [new SnipMateParser()];
-        const parsed: Set<string> = new Set();
-        for (const name of new Set(names)) {
-            const path = this.snippetNameToPath(name, runtimepath);
-            for (const parser of parsers) {
-                for (const filepath of await parser.fetchSnippetsFiles(denops, path)) {
-                    this.parseSnippet(new SnipMateParser(), filepath, parsed);
-                }
-            }
-        }
+    public async fileTypeChanged(denops: Denops): Promise<void> {
+        this.filetype = await option.filetype.get(denops);
     }
 
-    private snippetNameToPath(name: string, runtimepath: string[]): string {
-        for (const path of runtimepath) {
-            if (path.endsWith('/' + name)) {
-                return path;
-            }
+    private getSnippets(denops: Denops): Promise<Snippet[]> {
+        if (this.filetype === '') {
+            return Promise.resolve([]);
         }
-        return name;
+        return this.snippetManager.getSnippets(denops, this.filetype);
     }
 
-    private async parseSnippet(parser: Parser, filepath: string, parsed: Set<string>): Promise<void> {
-        if (parsed.has(filepath)) {
-            return;
-        }
-        parsed.add(filepath);
-        const {snippets, extendsFilepaths} = await parser.parse(filepath);
-        for (const snippet of snippets) {
-            this.snippets.push(snippet);
-        }
-        for (const extendFilepath of extendsFilepaths) {
-            this.parseSnippet(parser, extendFilepath, parsed);
+    public registerSnippets(denops: Denops, names: string[]): void {
+        for (const name of names) {
+            this.snippetManager.addPathOrRepoName(denops, 'SnipMate', name);
         }
     }
 
@@ -74,7 +122,7 @@ export class Olppet {
         const currentLine: string = await denops.call('getline', line) as string;
         const head = currentLine.substr(0, col - 1);
         let matched: Snippet | null = null;
-        for (const snippet of this.snippets) {
+        for (const snippet of await this.getSnippets(denops)) {
             if (head.match(snippet.pattern)) {
                 matched = snippet;
             }
@@ -292,16 +340,16 @@ export class Olppet {
         await this.updateLines(denops);
     }
 
-    public getCandidates(_denops: Denops): Promise<{word: string, menu?: string}[]> {
+    public async getCandidates(denops: Denops): Promise<{word: string, menu?: string}[]> {
         const candidates: {word: string, menu?: string}[] = [];
-        for (const snippet of this.snippets) {
+        for (const snippet of await this.getSnippets(denops)) {
             if (snippet.description) {
                 candidates.push({word: snippet.trigger, menu: snippet.description});
             } else {
                 candidates.push({word: snippet.trigger});
             }
         }
-        return Promise.resolve(candidates);
+        return candidates;
     }
 }
 

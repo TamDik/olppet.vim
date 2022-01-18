@@ -114,23 +114,24 @@ export class Olppet {
             } else {
                 await denops.call('append', this.current.entoryPoint.lnum + i - 1, line);
             }
-            if (i === len - 1 && this.current.focus === null) {
-                await denops.call('cursor', this.current.entoryPoint.lnum + i, bytes(line) + 1);
-            }
         }
-
         if (this.current.focus === null) {
-            this.leaveSnippet();
-            return true;
+            await this.jumpToEndPoint(denops);
+        } else {
+            await this.jumpToFocus(denops, false);
         }
-        this.jumpToFocus(denops, false);
         for (const scriptId in this.current.scripts) {
             const {token} = this.current.scripts[scriptId];
             await helper.execute(denops, `let g:_olppet_temp = ${token.script}`);
             this.current.scripts[scriptId].value = await variable.globals.get(denops, '_olppet_temp');
         }
         await this.updateLines(denops);
-        this.jumpToFocus(denops);
+        if (this.current.focus === null) {
+            await this.jumpToEndPoint(denops);
+            this.leaveSnippet();
+        } else {
+            await this.jumpToFocus(denops);
+        }
         return true;
     }
 
@@ -189,6 +190,15 @@ export class Olppet {
         }
     }
 
+    private async jumpToEndPoint(denops: Denops): Promise<void> {
+        if (!this.current) {
+            return;
+        }
+        const lnum = this.current.entoryPoint.lnum + this.current.lines.length - 1;
+        const col = bytes(this.current.lines[this.current.lines.length]) + 1;
+        await denops.call('cursor', lnum, col);
+    }
+
     private async jumpToFocus(denops: Denops, select?: boolean): Promise<void> {
         if (select === undefined) {
             select = true;
@@ -206,11 +216,7 @@ export class Olppet {
             await denops.call('feedkeys', '\u{1b}', 'n');  // Esc
             await denops.call('cursor', focusTabStop.start.lnum, focusTabStop.start.col + 1);
             await helper.execute(denops, 'normal! v');
-            if (focusTabStop.token === this.current.tabstops[0].token) {
-                await denops.call('cursor', focusTabStop.end.lnum, focusTabStop.end.col);
-            } else {
-                await denops.call('cursor', focusTabStop.end.lnum, focusTabStop.end.col + 1);  // XXX
-            }
+            await denops.call('cursor', focusTabStop.end.lnum, focusTabStop.end.col + 1);
             await helper.execute(denops, 'normal! \u{07}');  // C-g
         }
     }

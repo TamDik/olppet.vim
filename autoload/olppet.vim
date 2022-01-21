@@ -29,9 +29,14 @@ function! olppet#disable() abort
 endfunction
 
 
-function! olppet#register_snippets(snippets) abort
-  let l:snippets = s:string_to_list(a:snippets)
-  call s:notify('registerSnippets', [l:snippets])
+function! olppet#register_snippet(name, type) abort
+  call s:notify('registerSnippet', [a:name, a:type])
+endfunction
+
+
+function! olppet#register_snippets(names) abort
+  let l:names = s:string_to_list(a:names)
+  call s:notify('registerSnippets', [l:names])
 endfunction
 
 

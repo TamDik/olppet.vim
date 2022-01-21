@@ -1,4 +1,5 @@
-import { Denops, ensureArray, isString } from './deps.ts';
+import { Denops, ensureArray, ensureString, isString } from './deps.ts';
+import { ensureParserType } from './types.ts';
 import { Olppet } from './olppet.ts';
 
 
@@ -19,6 +20,12 @@ export async function main(denops: Denops): Promise<void> {
         registerSnippets(snippetNames): Promise<void> {
             ensureArray(snippetNames, isString);
             olppet.registerSnippets(denops, snippetNames);
+            return Promise.resolve()
+        },
+        registerSnippet(snippetName, parserType): Promise<void> {
+            ensureString(snippetName);
+            ensureParserType(parserType);
+            olppet.registerSnippet(denops, snippetName, parserType);
             return Promise.resolve()
         },
         async expand(): Promise<boolean> {

@@ -1,8 +1,6 @@
 import { Denops, option, expandGlob, helper, variable } from './deps.ts';
+import { ParserType } from './types.ts';
 import { bytes } from './util.ts';
-
-
-type ParserType = 'SnipMate';
 
 
 class SnippetManager {
@@ -16,7 +14,7 @@ class SnippetManager {
         parsedFiles: Set<string>
     }> = {};
 
-    public async addPathOrRepoName(denops: Denops, parserType: ParserType, pathOrRepoName: string): Promise<void> {
+    public async addPathOrRepoName(denops: Denops, pathOrRepoName: string, parserType: ParserType): Promise<void> {
         const runtimepath = await option.runtimepath.getGlobal(denops);
         for (const path of runtimepath.split(',')) {
             if (path.endsWith('/' + pathOrRepoName)) {
@@ -108,8 +106,12 @@ export class Olppet {
 
     public registerSnippets(denops: Denops, names: string[]): void {
         for (const name of names) {
-            this.snippetManager.addPathOrRepoName(denops, 'SnipMate', name);
+            this.snippetManager.addPathOrRepoName(denops, name, 'SnipMate');
         }
+    }
+
+    public registerSnippet(denops: Denops, name: string, parserType: ParserType) {
+        this.snippetManager.addPathOrRepoName(denops, name, parserType);
     }
 
     public leaveSnippet(): void {

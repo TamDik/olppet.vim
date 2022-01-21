@@ -25,11 +25,14 @@ FUNCTIONS                                                   *olppet-functions*
 olppet#enable()                                              *olppet#enable()*
         Enable olppet.vim plugin.
 
-olppet#disable()                                             *olppet#disable()*
+olppet#disable()                                            *olppet#disable()*
         Disable olppet.vim plugin.
 
-olppet#register_snippets(string or string[])     *olppet#register_snippets()*
+olppet#register_snippet(string)                    *olppet#register_snippet()*
         Register snippets directory.
+
+olppet#register_snippets(string or string[])      *olppet#register_snippets()*
+        Register snippets directories.
 
 olppet#expand()                                              *olppet#expand()*
         Expand a snippet.

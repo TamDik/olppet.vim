@@ -11,7 +11,7 @@ function! olppet#enable() abort
   augroup olppet
     autocmd!
     autocmd TextChangedI,TextChangedP * call s:request('textChanged', [], v:null)
-    autocmd FileType * call s:notify('fileTypeChanged', [])
+    autocmd BufEnter * call s:notify('bufEntered', [])
   augroup END
 endfunction
 

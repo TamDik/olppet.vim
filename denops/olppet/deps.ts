@@ -7,3 +7,4 @@ export { ensureArray, ensureString, isString } from "https://deno.land/x/unknown
 export { expandGlob } from "https://deno.land/std@0.112.0/fs/mod.ts";
 export { BaseSource } from "https://deno.land/x/ddc_vim@v0.17.0/types.ts";
 export type { Candidate, Context } from "https://deno.land/x/ddc_vim@v0.17.0/types.ts";
+export { JSONC } from "https://deno.land/x/jsonc_parser@v0.0.1/mod.ts";

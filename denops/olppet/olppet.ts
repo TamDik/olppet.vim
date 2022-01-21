@@ -1,4 +1,4 @@
-import { Denops, option, expandGlob, helper, variable } from './deps.ts';
+import { Denops, option, expandGlob, helper, variable, JSONC } from './deps.ts';
 import { bytes } from './util.ts';
 
 
@@ -45,7 +45,7 @@ class SnippetManager {
                     continue;
                 }
                 for (const filepath of await parser.fetchSnippetsFiles(denops, directory)) {
-                    this.parseSnippet(parserName, filetype, filepath);
+                    await this.parseSnippet(parserName, filetype, filepath);
                 }
             }
         }
@@ -57,12 +57,12 @@ class SnippetManager {
             return;
         }
         parsed.add(filepath);
-        const {snippets, extendsFilepaths} = await this.parsers[parserName].parser.parse(filepath);
+        const {snippets, extendsFilepaths} = await this.parsers[parserName].parser.parse(filetype, filepath);
         for (const snippet of snippets) {
             this.filetypes[filetype].snippets.push(snippet);
         }
         for (const extendFilepath of extendsFilepaths) {
-            this.parseSnippet(parserName, filetype, extendFilepath);
+            await this.parseSnippet(parserName, filetype, extendFilepath);
         }
     }
 }
@@ -96,9 +96,10 @@ export class Olppet {
 
     public constructor() {
         this.snippetManager.addParser('SnipMate', new SnipMateParser());
+        this.snippetManager.addParser('VSCode', new VSCodeParser());
     }
 
-    public async fileTypeChanged(denops: Denops): Promise<void> {
+    public async updateFiletype(denops: Denops): Promise<void> {
         this.filetype = await option.filetype.get(denops);
     }
 
@@ -186,6 +187,9 @@ export class Olppet {
             this.leaveSnippet();
         } else {
             await this.jumpToFocus(denops);
+            if (this.current.focus.token instanceof TerminalToken) {
+                this.leaveSnippet();
+            }
         }
         return true;
     }
@@ -442,6 +446,24 @@ class TabStopToken extends SnippetToken {
 }
 
 
+class TerminalToken extends TabStopToken {
+    constructor() {
+        super('.', []);
+    }
+
+    public toText(_denops: Denops, _current: CurrentSnippet): Promise<string> {
+        return Promise.resolve('');
+    }
+}
+
+
+class ChoiceToken extends TabStopToken {
+    constructor(tokenId: string, items: string[]) {
+        super(tokenId, [new TextToken(items.join('/'))]);
+    }
+}
+
+
 class MirrorToken extends SnippetToken {
     constructor(public readonly tokenId: string) {
         super();
@@ -450,10 +472,29 @@ class MirrorToken extends SnippetToken {
     public toText(denops: Denops, current: CurrentSnippet): Promise<string> {
         for (const {token} of current.tabstops) {
             if (token.tokenId === this.tokenId) {
-                return token.toText(denops, current);
+                return this.convert(denops, current, token);
             }
         }
         return Promise.resolve(this.tokenId);
+    }
+
+    protected convert(denops: Denops, current: CurrentSnippet, token: SnippetToken): Promise<string> {
+        return token.toText(denops, current);
+    }
+}
+
+
+class TransformToken extends MirrorToken {
+    constructor(tokenId: string,
+                private readonly pat: string,
+                private readonly sub: string,
+                private readonly opt: string) {
+        super(tokenId);
+    }
+
+    protected async convert(denops: Denops, current: CurrentSnippet, token: SnippetToken): Promise<string> {
+        const text = await token.toText(denops, current);
+        return text.replace(new RegExp(this.pat, this.opt), this.sub);
     }
 }
 
@@ -480,9 +521,24 @@ class VimToken extends SnippetToken {
 }
 
 
+function splitByRegex(text: string, regex: RegExp): string[] {
+    const token1 = text.split(regex);
+    const token2 = text.match(regex);
+    if (!token2) {
+        return token1;
+    }
+    const token: string[] = [token1[0]];
+    for (let i = 0; i < token2.length; i++) {
+        token.push(token2[i]);
+        token.push(token1[i + 1]);
+    }
+    return token;
+}
+
+
 interface Parser {
-    fetchSnippetsFiles(denops: Denops, directory: string): Promise<Set<string>>
-    parse(filepath: string): Promise<{snippets: Snippet[], extendsFilepaths: string[]}>;
+    fetchSnippetsFiles(denops: Denops, directory: string): Promise<Set<string>>;
+    parse(filetype: string, filepath: string): Promise<{snippets: Snippet[], extendsFilepaths: string[]}>;
 }
 
 
@@ -492,14 +548,11 @@ class SnipMateParser implements Parser {
             await option.filetype.get(denops),
             await option.syntax.get(denops),
         ]);
-
-        const snippetsFilepaths: Set<string> = new Set();
+        const snippetsFilepaths: string[] = [];
         for (const scope of scopes) {
-            for (const filepath of await this.filepathOf(directory, scope)) {
-                snippetsFilepaths.add(filepath);
-            }
+            snippetsFilepaths.push(...await this.filepathOf(directory, scope));
         }
-        return snippetsFilepaths;
+        return new Set(snippetsFilepaths);
     }
 
     private async filepathOf(directory: string, scope: string): Promise<string[]> {
@@ -523,7 +576,7 @@ class SnipMateParser implements Parser {
         return filepaths;
     }
 
-    public async parse(filepath: string): Promise<{snippets: Snippet[], extendsFilepaths: string[]}> {
+    public async parse(_filetype: string, filepath: string): Promise<{snippets: Snippet[], extendsFilepaths: string[]}> {
         const text = await Deno.readTextFile(filepath);
         const {blocks, extendScopes} = this.splitBlock(text);
         const snippets = blocks.map(block => this.parseBlock(block));
@@ -543,7 +596,7 @@ class SnipMateParser implements Parser {
         const lines = this.removeMeaninglessLines(text.split(/\n/));
         for (const line of lines) {
             if (line.match(/^ *delete/)) {
-                console.log('delete:', line);
+                console.error('delete:', line);
                 continue;
             }
             if (line.match(/^ *extends/)) {
@@ -551,11 +604,11 @@ class SnipMateParser implements Parser {
                 continue;
             }
             if (line.match(/^ *include/)) {
-                console.log('include:', line);
+                console.error('include:', line);
                 continue;
             }
             if (line.match(/^ *source/)) {
-                console.log('source:', line);
+                console.error('source:', line);
                 continue;
             }
             if (line.match(/^ *snippet/)) {
@@ -625,7 +678,7 @@ class SnipMateParser implements Parser {
     private tokenize(text: string, tabstops: Set<string>): SnippetToken[] {
         text = text.replace(/\${VISUAL(:([^)]*))?}/g, '$2');  // remove ${VISUAL}
         const tokens = [];
-        const textAndTabStop = this.splitByRegex(text, /\${[^}]*}/g);
+        const textAndTabStop = splitByRegex(text, /\${[^}]*}/g);
         for (let i = 0; i < textAndTabStop.length; i++) {
             const tokenText = textAndTabStop[i];
             if (i % 2 === 0) {
@@ -647,14 +700,14 @@ class SnipMateParser implements Parser {
 
     private tokenizeText(text: string): SnippetToken[] {
         const tokens: SnippetToken[] = [];
-        const textAndCode = this.splitByRegex(text, /(?<!\\)`[^`]*(?<!\\)`/g);
+        const textAndCode = splitByRegex(text, /(?<!\\)`[^`]*(?<!\\)`/g);
         for (let codeI = 0; codeI < textAndCode.length; codeI++) {
             const tokenText = textAndCode[codeI].replace(/\\`/g, '`');
             if (codeI % 2 === 1) {
                 const script = tokenText.substr(1, tokenText.length - 2);
                 tokens.push(new VimToken(script));
             } else {
-                const textAndMirror = this.splitByRegex(tokenText, /\$\d+/g);
+                const textAndMirror = splitByRegex(tokenText, /\$\d+/g);
                 for (let mirrorI = 0; mirrorI < textAndMirror.length; mirrorI++) {
                     const tokenText = textAndMirror[mirrorI];
                     if (mirrorI % 2 === 0) {
@@ -667,18 +720,149 @@ class SnipMateParser implements Parser {
         }
         return tokens;
     }
+}
 
-    private splitByRegex(text: string, regex: RegExp): string[] {
-        const token1 = text.split(regex);
-        const token2 = text.match(regex);
-        if (!token2) {
-            return token1;
+
+type VSCodeJsonFormat = Record<string, {
+    prefix: string | string[],
+    body: string | string[],
+    scope?: string,
+    description?: string,
+}>;
+
+
+class VSCodeParser implements Parser {
+    public async fetchSnippetsFiles(denops: Denops, directory: string): Promise<Set<string>> {
+        const scopes: Set<string> = new Set([
+            await option.filetype.get(denops),
+            await option.syntax.get(denops),
+        ]);
+        const snippetsFilepaths: string[] = [];
+        for (const scope of scopes) {
+            snippetsFilepaths.push(...await this.filepathOf(directory, scope));
         }
-        const token: string[] = [token1[0]];
-        for (let i = 0; i < token2.length; i++) {
-            token.push(token2[i]);
-            token.push(token1[i + 1]);
+        return new Set(snippetsFilepaths);
+    }
+
+    private async filepathOf(directory: string, scope: string): Promise<string[]> {
+        if (scope === '') {
+            return [];
         }
-        return token;
+        const filepaths: string[] = [];
+        const globs: string[] = [
+            `${directory}/snippets/${scope}.json`,
+            `${directory}/snippets/*.code-snippets`,
+        ];
+        for (const glob of globs) {
+            for await (const filepath of expandGlob(glob)) {
+                if (filepath.isFile) {
+                    filepaths.push(filepath.path);
+                }
+            }
+        }
+        return filepaths;
+    }
+
+    public async parse(filetype: string, filepath: string): Promise<{snippets: Snippet[], extendsFilepaths: string[]}> {
+        const text = await Deno.readTextFile(filepath);
+        const data: VSCodeJsonFormat = JSONC.parse(text);
+        const snippets: Snippet[] = [];
+        const isGlobalSnippetFile = filepath.endsWith('.code-snippets');
+
+        for (const {scope, prefix, body, description} of Object.values(data)) {
+            if (isGlobalSnippetFile && typeof(scope) === 'string') {
+                const scopes = scope.split(',');
+                if (!scopes.includes(filetype)) {
+                    continue;
+                }
+            }
+            const lines = this.parseBody(this.stringToList(body));
+            for (const trigger of this.stringToList(prefix)) {
+                if (description) {
+                    snippets.push(new Snippet(trigger, description, lines));
+                } else {
+                    snippets.push(new Snippet(trigger, null, lines));
+                }
+            }
+        }
+        return {snippets, extendsFilepaths: []};
+    }
+
+    private stringToList(arg: string | string[]): string[] {
+        if (typeof(arg) === 'string') {
+            return [arg];
+        }
+        return arg;
+    }
+
+    private parseBody(lines: string[]): SnippetLine[] {
+        const snippetLines: SnippetLine[] = [];
+        const tabstops: Set<string> = new Set();
+        for (const line of lines) {
+            for (const line2 of line.split('\n')) {
+                const tokens: SnippetToken[] = [];
+                const indentMatch = line2.match(/^(\t*)(.*)$/) as RegExpMatchArray;
+                const text = indentMatch[2];
+                const indent = indentMatch[1].length;
+                for (let i = 0; i < indent; i++) {
+                    tokens.push(new IndentToken());
+                }
+                tokens.push(...this.tokenize(text, tabstops));
+                snippetLines.push(new SnippetLine(tokens));
+            }
+        }
+        return snippetLines;
+    }
+
+    private tokenize(text: string, tabstops: Set<string>): SnippetToken[] {
+        const tokens: SnippetToken[] = [];
+        const textAndTabStop = splitByRegex(text, /\$(?:\d+|{\d+(?:|:[^}]*|\/.*\/.*\/[dgimsuy]*|\|.*\|)})/g);
+
+        for (let i = 0; i < textAndTabStop.length; i++) {
+            const tokenText = textAndTabStop[i];
+            if (i % 2 === 0) {
+                tokens.push(new TextToken(tokenText));
+                continue;
+            }
+
+            const tokeId = tokenText.replace(/^\D*/, '').replace(/(?<=^\d*)\D.*$/, '');
+            if (tokeId === '0') {
+                tokens.push(new TerminalToken());
+                continue;
+            }
+
+            const option = tokenText.replace(/(^\D*\d*|}$)/g, '');
+            if (!option) {
+                if (tabstops.has(tokeId)) {
+                    tokens.push(new MirrorToken(tokeId));
+                } else {
+                    tokens.push(new TabStopToken(tokeId, []));
+                    tabstops.add(tokeId);
+                }
+                continue;
+            }
+
+            const placeholderMatch = option.match('^:(.*)$');
+            if (placeholderMatch) {
+                const placeholder = this.tokenize(placeholderMatch[1], tabstops);
+                tokens.push(new TabStopToken(tokeId, placeholder));
+                tabstops.add(tokeId);
+                continue;
+            }
+
+            const choiceMatch = option.match(/^\|([^,]*(?:,[^,]*)*)\|$/);
+            if (choiceMatch) {
+                tokens.push(new ChoiceToken(tokeId, choiceMatch[1].split(',')));
+                tabstops.add(tokeId);
+                continue;
+            }
+
+            const transformMatch = option.match(/^\/(.*)\/(.*)\/([dgimsuy]*)$/);
+            if (transformMatch) {
+                tokens.push(new TransformToken(tokeId, transformMatch[1], transformMatch[2], transformMatch[3]));
+                continue;
+            }
+        }
+        return tokens;
     }
 }

@@ -187,9 +187,9 @@ export class Olppet {
             this.leaveSnippet();
         } else {
             await this.jumpToFocus(denops);
-            if (this.current.focus.token instanceof TerminalToken) {
-                this.leaveSnippet();
-            }
+        }
+        if (this.current.focus && this.current.focus.token instanceof TerminalToken) {
+            this.leaveSnippet();
         }
         return true;
     }
@@ -294,6 +294,9 @@ export class Olppet {
         this.current.focus = this.current.tabstops[nextForcusI];
         await this.updateLines(denops);
         await this.jumpToFocus(denops);
+        if (this.current.focus && this.current.focus.token instanceof TerminalToken) {
+            this.leaveSnippet();
+        }
         return true;
     }
 
@@ -311,6 +314,9 @@ export class Olppet {
         this.current.focus = this.current.tabstops[nextForcusI];
         await this.updateLines(denops);
         await this.jumpToFocus(denops);
+        if (this.current.focus && this.current.focus.token instanceof TerminalToken) {
+            this.leaveSnippet();
+        }
         return true;
     }
 
@@ -686,6 +692,10 @@ class SnipMateParser implements Parser {
             } else {
                 const match = tokenText.match(/^\$\{([^:]*)(?::(.*))?\}$/) as RegExpMatchArray;
                 const tabstopId = match[1];
+                if (tabstopId === '0') {
+                    tokens.push(new TerminalToken());
+                    continue;
+                }
                 if (!tabstops.has(tabstopId)) {
                     const placeholder = match[2] ? this.tokenizeText(match[2]) : [];
                     tokens.push(new TabStopToken(match[1], placeholder));

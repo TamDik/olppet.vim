@@ -22,26 +22,44 @@ INTERFACE                                                   *olppet-interface*
 ------------------------------------------------------------------------------
 FUNCTIONS                                                   *olppet-functions*
 
-olppet#enable()                                              *olppet#enable()*
+                                                             *olppet#enable()*
+olppet#enable()
         Enable olppet.vim plugin.
 
-olppet#disable()                                            *olppet#disable()*
+                                                            *olppet#disable()*
+olppet#disable()
         Disable olppet.vim plugin.
 
-olppet#register_snippet(string)                    *olppet#register_snippet()*
+                                                   *olppet#register_snippet()*
+olppet#register_snippet({path}, {type})
         Register snippets directory.
+        {path} is the path to the local snippets directory.
+        {type} is the type of the parser.
+        Note: If you want to use the snippets that is in the 'runtimepath',
+        you can use user/repo (ex: honza/vim-snippets) as {path} instead of
+        the full path.
 
-olppet#register_snippets(string or string[])      *olppet#register_snippets()*
-        Register snippets directories.
+        Example:
+>
+        call olppet#register_snippet('/path/to/snippets/directory', 'VSCode')
+        call olppet#register_snippet('honza/vim-snippets', 'SnipMate')
+<
 
-olppet#expand()                                              *olppet#expand()*
+                                                             *olppet#expand()*
+olppet#expand()
         Expand a snippet.
+        Returns |v:true| if there is an expandable snippet, |v:false|
+        otherwise.
 
-olppet#jump_forward()                                  *olppet#jump_forward()*
+                                                       *olppet#jump_forward()*
+olppet#jump_forward()
         Jump to the forward tab stop.
+        Returns |v:true| if there is a next tab stop, |v:false| otherwise.
 
-olppet#jump_backward(string or string[])              *olppet#jump_backward()*
+                                                      *olppet#jump_backward()*
+olppet#jump_backward(string or string[])
         Jump to the previous tab stop.
+        Returns |v:true| if there is a previous tab stop, |v:false| otherwise.
 
 ------------------------------------------------------------------------------
 KEY MAPPINGS                                             *olppet-key-mappings*
@@ -54,5 +72,20 @@ KEY MAPPINGS                                             *olppet-key-mappings*
 
 <Plug>(olppet-jump-backward)                    *<Plug>(olppet-jump-backward)*
         Jump to the previous tab stop.
+
+==============================================================================
+EXAMPLES                                                     *olppet-examples*
+>
+        Plug 'TamDik/olppet.vim'
+        Plug 'vim-denops/denops.vim'
+        Plug 'honza/vim-snippets'
+
+        imap <tab> <Plug>(olppet-expand)
+        imap <C-f> <Plug>(olppet-jump-forward)
+        imap <C-b> <Plug>(olppet-jump-backward)
+
+        call olppet#register_snippet('honza/vim-snippets', 'SnipMate')
+        call olppet#enable()
+<
 
 vim:tw=78:ts=8:ft=help:norl:

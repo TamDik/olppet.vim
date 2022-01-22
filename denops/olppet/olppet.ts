@@ -93,6 +93,7 @@ export class Olppet {
     private snippetManager = new SnippetManager();
     private current: CurrentSnippet | null = null;
     private filetype = '';
+    private jumpLoop = false;
 
     public constructor() {
         this.snippetManager.addParser('SnipMate', new SnipMateParser());
@@ -103,17 +104,15 @@ export class Olppet {
         this.filetype = await option.filetype.get(denops);
     }
 
+    public setJumpLoop(loop: boolean): void {
+        this.jumpLoop = loop;
+    }
+
     private getSnippets(denops: Denops): Promise<Snippet[]> {
         if (this.filetype === '') {
             return Promise.resolve([]);
         }
         return this.snippetManager.getSnippets(denops, this.filetype);
-    }
-
-    public registerSnippets(denops: Denops, names: string[]): void {
-        for (const name of names) {
-            this.snippetManager.addPathOrRepoName(denops, name, 'SnipMate');
-        }
     }
 
     public registerSnippet(denops: Denops, snippetName: string, parserName: string) {
@@ -284,6 +283,12 @@ export class Olppet {
         if (!this.current) {
             return false;
         }
+        if (!this.jumpLoop) {
+            const last = this.current.tabstops[this.current.tabstops.length - 1];
+            if (this.current.focus === last) {
+                return false;
+            }
+        }
         let nextForcusI = 0;
         for (let i = 0, len = this.current.tabstops.length - 1; i < len; i++) {
             if (this.current.focus === this.current.tabstops[i]) {
@@ -303,6 +308,12 @@ export class Olppet {
     public async jumpBackward(denops: Denops): Promise<boolean> {
         if (!this.current) {
             return false;
+        }
+        if (!this.jumpLoop) {
+            const first = this.current.tabstops[0];
+            if (this.current.focus === first) {
+                return false;
+            }
         }
         let nextForcusI = this.current.tabstops.length - 1;
         for (let i = this.current.tabstops.length - 1; i > 0; i--) {

@@ -34,12 +34,6 @@ function! olppet#register_snippet(name, type) abort
 endfunction
 
 
-function! olppet#register_snippets(names) abort
-  let l:names = s:string_to_list(a:names)
-  call s:notify('registerSnippets', [l:names])
-endfunction
-
-
 function! olppet#expand() abort
   if !s:enabled
     return v:false
@@ -61,15 +55,6 @@ function! olppet#jump_backward() abort
     return v:false
   endif
   return s:request('jumpBackward', [], v:false)
-endfunction
-
-
-function! s:string_to_list(arg) abort
-  if type(a:arg) == v:t_list
-    return a:arg
-  else
-    return [a:arg]
-  endif
 endfunction
 
 

@@ -1,4 +1,4 @@
-import { Denops, ensureArray, ensureString, isString } from './deps.ts';
+import { Denops, ensureString } from './deps.ts';
 import { Olppet } from './olppet.ts';
 
 
@@ -14,11 +14,6 @@ export async function main(denops: Denops): Promise<void> {
         disable(): Promise<void> {
             enabled = false;
             olppet.leaveSnippet();
-            return Promise.resolve();
-        },
-        registerSnippets(snippetNames): Promise<void> {
-            ensureArray(snippetNames, isString);
-            olppet.registerSnippets(denops, snippetNames);
             return Promise.resolve();
         },
         registerSnippet(snippetName, parserName): Promise<void> {

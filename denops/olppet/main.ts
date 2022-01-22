@@ -1,5 +1,4 @@
 import { Denops, ensureArray, ensureString, isString } from './deps.ts';
-import { ensureParserType } from './types.ts';
 import { Olppet } from './olppet.ts';
 
 
@@ -15,18 +14,18 @@ export async function main(denops: Denops): Promise<void> {
         disable(): Promise<void> {
             enabled = false;
             olppet.leaveSnippet();
-            return Promise.resolve()
+            return Promise.resolve();
         },
         registerSnippets(snippetNames): Promise<void> {
             ensureArray(snippetNames, isString);
             olppet.registerSnippets(denops, snippetNames);
-            return Promise.resolve()
+            return Promise.resolve();
         },
-        registerSnippet(snippetName, parserType): Promise<void> {
+        registerSnippet(snippetName, parserName): Promise<void> {
             ensureString(snippetName);
-            ensureParserType(parserType);
-            olppet.registerSnippet(denops, snippetName, parserType);
-            return Promise.resolve()
+            ensureString(parserName);
+            olppet.registerSnippet(denops, snippetName, parserName);
+            return Promise.resolve();
         },
         async expand(): Promise<boolean> {
             return await olppet.expand(denops);

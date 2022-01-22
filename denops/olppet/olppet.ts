@@ -1,12 +1,9 @@
 import { Denops, option, expandGlob, helper, variable } from './deps.ts';
-import { ParserType } from './types.ts';
 import { bytes } from './util.ts';
 
 
 class SnippetManager {
-    private readonly parsers: Record<ParserType, {parser: Parser, directories: string[]}> = {
-        SnipMate: {parser: new SnipMateParser(), directories: []},
-    };
+    private readonly parsers: Record<string, {parser: Parser, directories: string[]}> = {};
 
     private readonly filetypes: Record<string, {
         snippets: Snippet[],
@@ -14,15 +11,19 @@ class SnippetManager {
         parsedFiles: Set<string>
     }> = {};
 
-    public async addPathOrRepoName(denops: Denops, pathOrRepoName: string, parserType: ParserType): Promise<void> {
+    public addParser(name: string, parser: Parser): void {
+        this.parsers[name] = {parser, directories: []};
+    }
+
+    public async addPathOrRepoName(denops: Denops, pathOrRepoName: string, parser: string): Promise<void> {
         const runtimepath = await option.runtimepath.getGlobal(denops);
         for (const path of runtimepath.split(',')) {
             if (path.endsWith('/' + pathOrRepoName)) {
-                this.parsers[parserType].directories.push(path);
+                this.parsers[parser].directories.push(path);
                 return;
             }
         }
-        this.parsers[parserType].directories.push(pathOrRepoName);
+        this.parsers[parser].directories.push(pathOrRepoName);
     }
 
     public async getSnippets(denops: Denops, filetype: string): Promise<Snippet[]> {
@@ -38,30 +39,30 @@ class SnippetManager {
                 parsedFiles: new Set(),
             };
         }
-        for (const [parserType, {parser, directories}] of Object.entries(this.parsers)) {
+        for (const [parserName, {parser, directories}] of Object.entries(this.parsers)) {
             for (const directory of directories) {
                 if (this.filetypes[filetype].parsedDirectories.has(directory)) {
                     continue;
                 }
                 for (const filepath of await parser.fetchSnippetsFiles(denops, directory)) {
-                    this.parseSnippet(parserType as ParserType, filetype, filepath);
+                    this.parseSnippet(parserName, filetype, filepath);
                 }
             }
         }
     }
 
-    private async parseSnippet(parserType: ParserType, filetype: string, filepath: string): Promise<void> {
+    private async parseSnippet(parserName: string, filetype: string, filepath: string): Promise<void> {
         const parsed = this.filetypes[filetype].parsedFiles;
         if (parsed.has(filepath)) {
             return;
         }
         parsed.add(filepath);
-        const {snippets, extendsFilepaths} = await this.parsers[parserType].parser.parse(filepath);
+        const {snippets, extendsFilepaths} = await this.parsers[parserName].parser.parse(filepath);
         for (const snippet of snippets) {
             this.filetypes[filetype].snippets.push(snippet);
         }
         for (const extendFilepath of extendsFilepaths) {
-            this.parseSnippet(parserType, filetype, extendFilepath);
+            this.parseSnippet(parserName, filetype, extendFilepath);
         }
     }
 }
@@ -93,6 +94,10 @@ export class Olppet {
     private current: CurrentSnippet | null = null;
     private filetype = '';
 
+    public constructor() {
+        this.snippetManager.addParser('SnipMate', new SnipMateParser());
+    }
+
     public async fileTypeChanged(denops: Denops): Promise<void> {
         this.filetype = await option.filetype.get(denops);
     }
@@ -110,8 +115,8 @@ export class Olppet {
         }
     }
 
-    public registerSnippet(denops: Denops, name: string, parserType: ParserType) {
-        this.snippetManager.addPathOrRepoName(denops, name, parserType);
+    public registerSnippet(denops: Denops, snippetName: string, parserName: string) {
+        this.snippetManager.addPathOrRepoName(denops, snippetName, parserName);
     }
 
     public leaveSnippet(): void {

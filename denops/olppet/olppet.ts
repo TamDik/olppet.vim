@@ -250,7 +250,7 @@ export class Olppet {
             return;
         }
         const lnum = this.current.entoryPoint.lnum + this.current.lines.length - 1;
-        const col = bytes(this.current.lines[this.current.lines.length]) + 1;
+        const col = bytes(this.current.lines[this.current.lines.length - 1]) + 1;
         await denops.call('cursor', lnum, col);
     }
 

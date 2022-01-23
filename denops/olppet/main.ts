@@ -31,6 +31,10 @@ export async function main(denops: Denops): Promise<void> {
         jumpBackward(): Promise<boolean> {
             return olppet.jumpBackward(denops);
         },
+        getSnippets(filetype): Promise<[string, string|null][]> {
+            ensureString(filetype);
+            return olppet.getTriggers(filetype);
+        },
         async textChanged(): Promise<void> {
             await olppet.textChanged(denops);
         },
@@ -38,11 +42,19 @@ export async function main(denops: Denops): Promise<void> {
             olppet.updateFiletype(denops);
             return Promise.resolve();
         },
-        getCandidates(): Promise<{word: string, menu?: string}[]> {
+        async getCandidates(): Promise<{word: string, menu?: string}[]> {
             if (!enabled) {
                 return Promise.resolve([]);
             }
-            return olppet.getCandidates();
+            const candidates: {word: string, menu?: string}[] = [];
+            for (const [trigger, description] of await olppet.getTriggers()) {
+                const candidate: {word: string, menu?: string} = {word: trigger};
+                if (description) {
+                    candidate.menu = description;
+                }
+                candidates.push(candidate);
+            }
+            return candidates;
         }
     };
     await denops.cmd('doautocmd <nomodeline> User OlppetReady');

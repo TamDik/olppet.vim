@@ -57,9 +57,17 @@ olppet#jump_forward()
         Returns |v:true| if there is a next tab stop, |v:false| otherwise.
 
                                                       *olppet#jump_backward()*
-olppet#jump_backward(string or string[])
+olppet#jump_backward()
         Jump to the previous tab stop.
         Returns |v:true| if there is a previous tab stop, |v:false| otherwise.
+
+                                                       *olppet#get_snippets()*
+olppet#get_snippets([{filetype}])
+        Get all snippets.
+        You can specify {filetype}. The default value is 'filetype'.
+        Returns a |List| of |List| with two items ({trigger}, {description})
+        each. If the description of the snippet is not given, {description}
+        will be |v:null|.
 
 ------------------------------------------------------------------------------
 KEY MAPPINGS                                             *olppet-key-mappings*

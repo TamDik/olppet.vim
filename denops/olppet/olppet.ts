@@ -330,6 +330,14 @@ export class Olppet {
         return true;
     }
 
+    public async getTriggers(filetype?: string): Promise<[string, string | null][]> {
+        if (!filetype) {
+            filetype = this.filetype;
+        }
+        const snippets = await this.snippetManager.getSnippets(filetype);
+        return snippets.map(snippet => [snippet.trigger, snippet.description]);
+    }
+
     public async textChanged(denops: Denops): Promise<void> {
         if (this.current === null || this.current.focus === null) {
             return;
@@ -353,18 +361,6 @@ export class Olppet {
         }
         focusTabStop.text = subbytes(line, focusTabStop.start.col, focusTabStop.end.col + delta);
         await this.updateLines(denops);
-    }
-
-    public async getCandidates(): Promise<{word: string, menu?: string}[]> {
-        const candidates: {word: string, menu?: string}[] = [];
-        for (const snippet of await this.getSnippets()) {
-            if (snippet.description) {
-                candidates.push({word: snippet.trigger, menu: snippet.description});
-            } else {
-                candidates.push({word: snippet.trigger});
-            }
-        }
-        return candidates;
     }
 }
 

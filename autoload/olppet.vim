@@ -58,6 +58,11 @@ function! olppet#jump_backward() abort
 endfunction
 
 
+function! olppet#get_snippets(...) abort
+  return s:request('getSnippets', [get(a:000, 0, &filetype)], v:false)
+endfunction
+
+
 function! s:denops_running() abort
   try
     return denops#server#status() ==# 'running' && denops#plugin#is_loaded('olppet')

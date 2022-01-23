@@ -127,7 +127,7 @@ export class Olppet {
         const line: number = await denops.call('line', '.') as number;
         const col: number = await denops.call('col', '.') as number;
         const currentLine: string = await denops.call('getline', line) as string;
-        const head = currentLine.substr(0, col - 1);
+        const head = currentLine.substring(0, col - 1);
         let matched: Snippet | null = null;
         for (const snippet of await this.getSnippets(denops)) {
             if (head.match(snippet.pattern)) {
@@ -140,8 +140,8 @@ export class Olppet {
         const triggerBytes = bytes(matched.trigger);
         this.current = {
             snippet: matched,
-            head: head.substr(0, head.length - triggerBytes),
-            tail: currentLine.substr(col - 1),
+            head: head.substring(0, head.length - triggerBytes),
+            tail: currentLine.substring(col - 1),
             lines: [],
             prevLines: [],
             scripts: {},
@@ -356,12 +356,12 @@ export class Olppet {
         // new text of the focused tabstop
         let forcusTabStopTextBuffer = encodeURI(line);
         for (let i = 0, len = focusTabStop.start.col; i < len; i++) {
-            forcusTabStopTextBuffer = forcusTabStopTextBuffer.substr(forcusTabStopTextBuffer[0] === '%' ? 3 : 1);
+            forcusTabStopTextBuffer = forcusTabStopTextBuffer.substring(forcusTabStopTextBuffer[0] === '%' ? 3 : 1);
         }
         focusTabStop.text = '';
         for (let i = 0, len = focusTabStop.end.col + delta - focusTabStop.start.col; i < len; i++) {
-            focusTabStop.text += forcusTabStopTextBuffer.substr(0, forcusTabStopTextBuffer[0] === '%' ? 3 : 1);
-            forcusTabStopTextBuffer = forcusTabStopTextBuffer.substr(forcusTabStopTextBuffer[0] === '%' ? 3 : 1);
+            focusTabStop.text += forcusTabStopTextBuffer.substring(0, forcusTabStopTextBuffer[0] === '%' ? 3 : 1);
+            forcusTabStopTextBuffer = forcusTabStopTextBuffer.substring(forcusTabStopTextBuffer[0] === '%' ? 3 : 1);
         }
         focusTabStop.text = decodeURI(focusTabStop.text);
 
@@ -725,7 +725,7 @@ class SnipMateParser implements Parser {
         for (let codeI = 0; codeI < textAndCode.length; codeI++) {
             const tokenText = textAndCode[codeI].replace(/\\`/g, '`');
             if (codeI % 2 === 1) {
-                const script = tokenText.substr(1, tokenText.length - 2);
+                const script = tokenText.substring(1, tokenText.length - 1);
                 tokens.push(new VimToken(script));
             } else {
                 const textAndMirror = splitByRegex(tokenText, /\$\d+/g);
@@ -734,7 +734,7 @@ class SnipMateParser implements Parser {
                     if (mirrorI % 2 === 0) {
                         tokens.push(new TextToken(tokenText));
                     } else {
-                        tokens.push(new MirrorToken(tokenText.substr(1)));
+                        tokens.push(new MirrorToken(tokenText.substring(1)));
                     }
                 }
             }

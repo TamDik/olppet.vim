@@ -22,14 +22,14 @@ export async function main(denops: Denops): Promise<void> {
             olppet.registerSnippet(denops, snippetName, parserName);
             return Promise.resolve();
         },
-        async expand(): Promise<boolean> {
-            return await olppet.expand(denops);
+        expand(): Promise<boolean> {
+            return olppet.expand(denops);
         },
-        async jumpForward(): Promise<boolean> {
-            return await olppet.jumpForward(denops);
+        jumpForward(): Promise<boolean> {
+            return olppet.jumpForward(denops);
         },
-        async jumpBackward(): Promise<boolean> {
-            return await olppet.jumpBackward(denops);
+        jumpBackward(): Promise<boolean> {
+            return olppet.jumpBackward(denops);
         },
         async textChanged(): Promise<void> {
             await olppet.textChanged(denops);
@@ -42,7 +42,7 @@ export async function main(denops: Denops): Promise<void> {
             if (!enabled) {
                 return Promise.resolve([]);
             }
-            return olppet.getCandidates(denops);
+            return olppet.getCandidates();
         }
     };
     await denops.cmd('doautocmd <nomodeline> User OlppetReady');

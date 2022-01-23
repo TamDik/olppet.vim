@@ -26,12 +26,12 @@ class SnippetManager {
         this.parsers[parser].directories.push(pathOrRepoName);
     }
 
-    public async getSnippets(denops: Denops, filetype: string): Promise<Snippet[]> {
-        await this.parseSnippetsIfNeeds(denops, filetype);
+    public async getSnippets(filetype: string): Promise<Snippet[]> {
+        await this.parseSnippetsIfNeeds(filetype);
         return this.filetypes[filetype].snippets;
     }
 
-    private async parseSnippetsIfNeeds(denops: Denops, filetype: string): Promise<void> {
+    private async parseSnippetsIfNeeds(filetype: string): Promise<void> {
         if (this.filetypes[filetype] === undefined) {
             this.filetypes[filetype] = {
                 snippets: [],
@@ -44,7 +44,7 @@ class SnippetManager {
                 if (this.filetypes[filetype].parsedDirectories.has(directory)) {
                     continue;
                 }
-                for (const filepath of await parser.fetchSnippetsFiles(denops, directory)) {
+                for (const filepath of await parser.fetchSnippetsFiles(filetype, directory)) {
                     await this.parseSnippet(parserName, filetype, filepath);
                 }
             }
@@ -108,11 +108,11 @@ export class Olppet {
         this.jumpLoop = loop;
     }
 
-    private getSnippets(denops: Denops): Promise<Snippet[]> {
+    private getSnippets(): Promise<Snippet[]> {
         if (this.filetype === '') {
             return Promise.resolve([]);
         }
-        return this.snippetManager.getSnippets(denops, this.filetype);
+        return this.snippetManager.getSnippets(this.filetype);
     }
 
     public registerSnippet(denops: Denops, snippetName: string, parserName: string) {
@@ -129,7 +129,7 @@ export class Olppet {
         const currentLine: string = await denops.call('getline', line) as string;
         const head = subbytes(currentLine, 0, col - 1);
         let matched: Snippet | null = null;
-        for (const snippet of await this.getSnippets(denops)) {
+        for (const snippet of await this.getSnippets()) {
             if (head.match(snippet.pattern)) {
                 matched = snippet;
             }
@@ -355,9 +355,9 @@ export class Olppet {
         await this.updateLines(denops);
     }
 
-    public async getCandidates(denops: Denops): Promise<{word: string, menu?: string}[]> {
+    public async getCandidates(): Promise<{word: string, menu?: string}[]> {
         const candidates: {word: string, menu?: string}[] = [];
-        for (const snippet of await this.getSnippets(denops)) {
+        for (const snippet of await this.getSnippets()) {
             if (snippet.description) {
                 candidates.push({word: snippet.trigger, menu: snippet.description});
             } else {
@@ -541,39 +541,27 @@ function splitByRegex(text: string, regex: RegExp): string[] {
 
 
 interface Parser {
-    fetchSnippetsFiles(denops: Denops, directory: string): Promise<Set<string>>;
+    fetchSnippetsFiles(filetype: string, directory: string): Promise<Set<string>>;
     parse(filetype: string, filepath: string): Promise<{snippets: Snippet[], extendsFilepaths: string[]}>;
 }
 
 
 class SnipMateParser implements Parser {
-    public async fetchSnippetsFiles(denops: Denops, directory: string): Promise<Set<string>> {
-        const scopes: Set<string> = new Set([
-            await option.filetype.get(denops),
-            await option.syntax.get(denops),
-        ]);
-        const snippetsFilepaths: string[] = [];
-        for (const scope of scopes) {
-            snippetsFilepaths.push(...await this.filepathOf(directory, scope));
+    public async fetchSnippetsFiles(filetype: string, directory: string): Promise<Set<string>> {
+        if (filetype === '') {
+            return new Set();
         }
-        return new Set(snippetsFilepaths);
-    }
-
-    private async filepathOf(directory: string, scope: string): Promise<string[]> {
-        if (scope === '') {
-            return [];
-        }
-        const filepaths: string[] = [];
+        const filepaths: Set<string> = new Set();
         const globs: string[] = [
-            `${directory}/snippets/${scope}.snippets`,
-            `${directory}/snippets/${scope}_*.snippets`,
-            `${directory}/snippets/${scope}/*.snippets`,
+            `${directory}/snippets/${filetype}.snippets`,
+            `${directory}/snippets/${filetype}_*.snippets`,
+            `${directory}/snippets/${filetype}/*.snippets`,
             `${directory}/snippets/_.snippets`,
         ];
         for (const glob of globs) {
             for await (const filepath of expandGlob(glob)) {
                 if (filepath.isFile) {
-                    filepaths.push(filepath.path);
+                    filepaths.add(filepath.path);
                 }
             }
         }
@@ -587,7 +575,7 @@ class SnipMateParser implements Parser {
         const extendsFilepaths: string[] = [];
         const directory = (filepath.replace(/\/snippets\/.*?$/, ''));
         for (const scope of extendScopes) {
-            extendsFilepaths.push(...await this.filepathOf(directory, scope));
+            extendsFilepaths.push(...await this.fetchSnippetsFiles(directory, scope));
         }
         return {snippets, extendsFilepaths};
     }
@@ -740,31 +728,19 @@ type VSCodeJsonFormat = Record<string, {
 
 
 class VSCodeParser implements Parser {
-    public async fetchSnippetsFiles(denops: Denops, directory: string): Promise<Set<string>> {
-        const scopes: Set<string> = new Set([
-            await option.filetype.get(denops),
-            await option.syntax.get(denops),
-        ]);
-        const snippetsFilepaths: string[] = [];
-        for (const scope of scopes) {
-            snippetsFilepaths.push(...await this.filepathOf(directory, scope));
+    public async fetchSnippetsFiles(filetype: string, directory: string): Promise<Set<string>> {
+        if (filetype === '') {
+            return new Set();
         }
-        return new Set(snippetsFilepaths);
-    }
-
-    private async filepathOf(directory: string, scope: string): Promise<string[]> {
-        if (scope === '') {
-            return [];
-        }
-        const filepaths: string[] = [];
+        const filepaths: Set<string> = new Set();
         const globs: string[] = [
-            `${directory}/snippets/${scope}.json`,
+            `${directory}/snippets/${filetype}.json`,
             `${directory}/snippets/*.code-snippets`,
         ];
         for (const glob of globs) {
             for await (const filepath of expandGlob(glob)) {
                 if (filepath.isFile) {
-                    filepaths.push(filepath.path);
+                    filepaths.add(filepath.path);
                 }
             }
         }

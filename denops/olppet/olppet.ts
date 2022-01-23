@@ -1,5 +1,5 @@
 import { Denops, option, expandGlob, helper, variable, JSONC } from './deps.ts';
-import { bytes } from './util.ts';
+import { bytes, subbytes } from './util.ts';
 
 
 class SnippetManager {
@@ -127,7 +127,7 @@ export class Olppet {
         const line: number = await denops.call('line', '.') as number;
         const col: number = await denops.call('col', '.') as number;
         const currentLine: string = await denops.call('getline', line) as string;
-        const head = currentLine.substring(0, col - 1);
+        const head = subbytes(currentLine, 0, col - 1);
         let matched: Snippet | null = null;
         for (const snippet of await this.getSnippets(denops)) {
             if (head.match(snippet.pattern)) {
@@ -137,17 +137,17 @@ export class Olppet {
         if (!matched) {
             return false;
         }
-        const triggerBytes = bytes(matched.trigger);
+
         this.current = {
             snippet: matched,
-            head: head.substring(0, head.length - triggerBytes),
-            tail: currentLine.substring(col - 1),
+            head: head.substring(0, head.length - matched.trigger.length),
+            tail: subbytes(currentLine, col - 1),
             lines: [],
             prevLines: [],
             scripts: {},
             entoryPoint: {
                 lnum: line,
-                col: col - triggerBytes,
+                col: col - bytes(matched.trigger),
             },
             tabstops: matched.getAllTabStopTokens().map(token => ({
                 token, text: null,
@@ -351,19 +351,7 @@ export class Olppet {
             this.leaveSnippet();
             return;
         }
-
-        // new text of the focused tabstop
-        let forcusTabStopTextBuffer = encodeURI(line);
-        for (let i = 0, len = focusTabStop.start.col; i < len; i++) {
-            forcusTabStopTextBuffer = forcusTabStopTextBuffer.substring(forcusTabStopTextBuffer[0] === '%' ? 3 : 1);
-        }
-        focusTabStop.text = '';
-        for (let i = 0, len = focusTabStop.end.col + delta - focusTabStop.start.col; i < len; i++) {
-            focusTabStop.text += forcusTabStopTextBuffer.substring(0, forcusTabStopTextBuffer[0] === '%' ? 3 : 1);
-            forcusTabStopTextBuffer = forcusTabStopTextBuffer.substring(forcusTabStopTextBuffer[0] === '%' ? 3 : 1);
-        }
-        focusTabStop.text = decodeURI(focusTabStop.text);
-
+        focusTabStop.text = subbytes(line, focusTabStop.start.col, focusTabStop.end.col + delta);
         await this.updateLines(denops);
     }
 

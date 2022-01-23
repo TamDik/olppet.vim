@@ -183,11 +183,10 @@ export class Olppet {
         await this.updateLines(denops);
         if (this.current.focus === null) {
             await this.jumpToEndPoint(denops);
-            this.leaveSnippet();
         } else {
             await this.jumpToFocus(denops);
         }
-        if (this.current.focus && this.current.focus.token instanceof TerminalToken) {
+        if (this.current.focus === null || this.current.focus.token instanceof TerminalToken) {
             this.leaveSnippet();
         }
         return true;

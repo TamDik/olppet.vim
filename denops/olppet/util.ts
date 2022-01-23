@@ -1,5 +1,6 @@
 export function bytes(s: string): number {
-    return encodeURI(s).replace(/%../g, '.').length;
+    const encoder = new TextEncoder();
+    return encoder.encode(s).length;
 }
 
 export function subbytes(s: string, start: number, end?: number) {

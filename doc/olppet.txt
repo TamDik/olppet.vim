@@ -88,4 +88,21 @@ EXAMPLES                                                     *olppet-examples*
         call olppet#enable()
 <
 
+==============================================================================
+COMPLETION                                                 *olppet-completion*
+
+Olppet.vim supports ddc.vim.
+>
+        call ddc#custom#patch_global('sources', ['olppet'])
+        call ddc#custom#patch_global('sourceOptions', {
+            \   '_': {
+            \     'matchers': ['matcher_head'],
+            \     'sorters': ['sorter_rank']
+            \   },
+            \   'olppet': {
+            \     'mark': 'olppet',
+            \   },
+            \ })
+<
+
 vim:tw=78:ts=8:ft=help:norl:

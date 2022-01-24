@@ -571,7 +571,7 @@ class SnipMateParser implements Parser {
         const extendsFilepaths: string[] = [];
         const directory = (filepath.replace(/\/snippets\/.*?$/, ''));
         for (const scope of extendScopes) {
-            extendsFilepaths.push(...await this.fetchSnippetsFiles(directory, scope));
+            extendsFilepaths.push(...await this.fetchSnippetsFiles(scope, directory));
         }
         return {snippets, extendsFilepaths};
     }

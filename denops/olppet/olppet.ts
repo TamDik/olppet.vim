@@ -15,15 +15,17 @@ class SnippetManager {
         this.parsers[name] = {parser, directories: []};
     }
 
-    public async addPathOrRepoName(denops: Denops, pathOrRepoName: string, parser: string): Promise<void> {
+    public async addPathOrRepoName(denops: Denops, parserName: string, pathOrRepoName: string, subdirectory?: string): Promise<void> {
         const runtimepath = await option.runtimepath.getGlobal(denops);
         for (const path of runtimepath.split(',')) {
             if (path.endsWith('/' + pathOrRepoName)) {
-                this.parsers[parser].directories.push(path);
+                const directory = path + (subdirectory ? `/${subdirectory}` : '');
+                this.parsers[parserName].directories.push(directory);
                 return;
             }
         }
-        this.parsers[parser].directories.push(pathOrRepoName);
+        const directory = pathOrRepoName + (subdirectory ? `/${subdirectory}` : '');
+        this.parsers[parserName].directories.push(directory);
     }
 
     public async getSnippets(filetype: string): Promise<Snippet[]> {
@@ -115,8 +117,8 @@ export class Olppet {
         return this.snippetManager.getSnippets(this.filetype);
     }
 
-    public registerSnippet(denops: Denops, snippetName: string, parserName: string) {
-        this.snippetManager.addPathOrRepoName(denops, snippetName, parserName);
+    public registerSnippet(denops: Denops, pathOrRepoName: string, parserName: string, subdirectory?: string) {
+        this.snippetManager.addPathOrRepoName(denops, parserName, pathOrRepoName, subdirectory);
     }
 
     public leaveSnippet(): void {
@@ -542,18 +544,21 @@ interface Parser {
 }
 
 
-class SnipMateParser implements Parser {
+abstract class ParserBase implements Parser {
     public async fetchSnippetsFiles(filetype: string, directory: string): Promise<Set<string>> {
         if (filetype === '') {
             return new Set();
         }
         const filepaths: Set<string> = new Set();
-        const globs: string[] = [
-            `${directory}/snippets/${filetype}.snippets`,
-            `${directory}/snippets/${filetype}_*.snippets`,
-            `${directory}/snippets/${filetype}/*.snippets`,
-            `${directory}/snippets/_.snippets`,
-        ];
+        const globs: string[] = [];
+        for (const extension of this.extensions()) {
+            globs.push(
+                `${directory}/${filetype}.${extension}`,
+                `${directory}/${filetype}-*.${extension}`,
+                `${directory}/${filetype}_*.${extension}`,
+                `${directory}/${filetype}/*.${extension}`,
+            );
+        }
         for (const glob of globs) {
             for await (const filepath of expandGlob(glob)) {
                 if (filepath.isFile) {
@@ -564,8 +569,30 @@ class SnipMateParser implements Parser {
         return filepaths;
     }
 
+    protected abstract extensions(): string[];
+
+    public abstract parse(filetype: string, filepath: string): Promise<{snippets: Snippet[], extendsFilepaths: string[]}>;
+}
+
+
+class SnipMateParser extends ParserBase {
+    public async fetchSnippetsFiles(filetype: string, directory: string): Promise<Set<string>> {
+        const filepaths = await super.fetchSnippetsFiles(filetype, directory);
+        filepaths.add(`${directory}/_.snippets`);
+        return filepaths;
+    }
+
+    protected extensions(): string[] {
+        return ['snippets'];
+    }
+
     public async parse(_filetype: string, filepath: string): Promise<{snippets: Snippet[], extendsFilepaths: string[]}> {
-        const text = await Deno.readTextFile(filepath);
+        let text: string;
+        try {
+            text = await Deno.readTextFile(filepath);
+        } catch (_) {
+            return {snippets: [], extendsFilepaths: []};
+        }
         const {blocks, extendScopes} = this.splitBlock(text);
         const snippets = blocks.map(block => this.parseBlock(block));
         const extendsFilepaths: string[] = [];
@@ -723,28 +750,29 @@ type VSCodeJsonFormat = Record<string, {
 }>;
 
 
-class VSCodeParser implements Parser {
+class VSCodeParser extends ParserBase {
     public async fetchSnippetsFiles(filetype: string, directory: string): Promise<Set<string>> {
-        if (filetype === '') {
-            return new Set();
-        }
-        const filepaths: Set<string> = new Set();
-        const globs: string[] = [
-            `${directory}/snippets/${filetype}.json`,
-            `${directory}/snippets/*.code-snippets`,
-        ];
-        for (const glob of globs) {
-            for await (const filepath of expandGlob(glob)) {
-                if (filepath.isFile) {
-                    filepaths.add(filepath.path);
-                }
+        const filepaths = await super.fetchSnippetsFiles(filetype, directory);
+        const globalGlob = `${directory}/*.code-snippets`;
+        for await (const filepath of expandGlob(globalGlob)) {
+            if (filepath.isFile) {
+                filepaths.add(filepath.path);
             }
         }
         return filepaths;
     }
 
+    protected extensions(): string[] {
+        return ['json'];
+    }
+
     public async parse(filetype: string, filepath: string): Promise<{snippets: Snippet[], extendsFilepaths: string[]}> {
-        const text = await Deno.readTextFile(filepath);
+        let text: string;
+        try {
+            text = await Deno.readTextFile(filepath);
+        } catch (_) {
+            return {snippets: [], extendsFilepaths: []};
+        }
         const data: VSCodeJsonFormat = JSONC.parse(text);
         const snippets: Snippet[] = [];
         const isGlobalSnippetFile = filepath.endsWith('.code-snippets');

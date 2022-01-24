@@ -1,4 +1,8 @@
-import { Denops, ensureString } from './deps.ts';
+import {
+    Denops,
+    ensureString,
+    isNull,
+} from './deps.ts';
 import { Olppet } from './olppet.ts';
 
 
@@ -16,10 +20,15 @@ export async function main(denops: Denops): Promise<void> {
             olppet.leaveSnippet();
             return Promise.resolve();
         },
-        registerSnippet(snippetName, parserName): Promise<void> {
+        registerSnippet(snippetName, parserName, subdirectory): Promise<void> {
             ensureString(snippetName);
             ensureString(parserName);
-            olppet.registerSnippet(denops, snippetName, parserName);
+            if (isNull(subdirectory)) {
+                olppet.registerSnippet(denops, snippetName, parserName);
+            } else {
+                ensureString(subdirectory);
+                olppet.registerSnippet(denops, snippetName, parserName, subdirectory);
+            }
             return Promise.resolve();
         },
         expand(): Promise<boolean> {

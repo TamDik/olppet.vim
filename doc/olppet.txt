@@ -31,18 +31,36 @@ olppet#disable()
         Disable olppet.vim plugin.
 
                                                    *olppet#register_snippet()*
-olppet#register_snippet({path}, {type})
+olppet#register_snippet({path}, {type}[, {subdirectory}])
         Register snippets directory.
-        {path} is the path to the local snippets directory.
-        {type} is the type of the parser.
+        {type} is the type of the parser. See also |olppet-parsers|.
+        The following files are read for snippets: >
+    {path}/{scope}.{extension}
+    {path}/{scope}-*.{extension}
+    {path}/{scope}_*.{extension}
+    {path}/{scope}/*.{extension}
+<
+        where {path} is the path to the local snippets directory, {scope} is
+        'filetype', and {extension} is different for each parser. The files
+        specified by each parser are also read.
+
         Note: If you want to use the snippets that is in the 'runtimepath',
         you can use user/repo (ex: honza/vim-snippets) as {path} instead of
         the full path.
+        Note: If {subdirectory} is specified, {path} is replaced by
+        {path}/{subdirectory}.
 
-        Example:
->
-        call olppet#register_snippet('/path/to/snippets/directory', 'VSCode')
-        call olppet#register_snippet('honza/vim-snippets', 'SnipMate')
+        Example: >
+    call olppet#register_snippet(
+        \ '/path/to/snippets/directory',
+        \ 'VSCode'
+        \ )
+
+    call olppet#register_snippet(
+        \ 'honza/vim-snippets',
+        \ 'SnipMate',
+        \ 'snippets'
+        \ )
 <
 
                                                              *olppet#expand()*
@@ -84,33 +102,64 @@ KEY MAPPINGS                                             *olppet-key-mappings*
 ==============================================================================
 EXAMPLES                                                     *olppet-examples*
 >
-        Plug 'TamDik/olppet.vim'
-        Plug 'vim-denops/denops.vim'
-        Plug 'honza/vim-snippets'
+    Plug 'TamDik/olppet.vim'
+    Plug 'vim-denops/denops.vim'
+    Plug 'honza/vim-snippets'
 
-        imap <tab> <Plug>(olppet-expand)
-        imap <C-f> <Plug>(olppet-jump-forward)
-        imap <C-b> <Plug>(olppet-jump-backward)
+    imap <tab> <Plug>(olppet-expand)
+    imap <C-f> <Plug>(olppet-jump-forward)
+    imap <C-b> <Plug>(olppet-jump-backward)
 
-        call olppet#register_snippet('honza/vim-snippets', 'SnipMate')
-        call olppet#enable()
+    call olppet#register_snippet(
+        \ '/path/to/snippets/directory',
+        \ 'VSCode'
+        \ )
+
+    call olppet#register_snippet(
+        \ 'honza/vim-snippets',
+        \ 'SnipMate',
+        \ 'snippets'
+        \ )
+    call olppet#enable()
 <
+
+==============================================================================
+PARSERS                                                       *olppet-parsers*
+
+                                                      *olppet-snipmate-parser*
+SnipMateParser
+        Parser for SnipMate style snippets.
+        https://github.com/garbas/vim-snipmate
+
+        type: "SnipMate"
+        extension: "snippets"
+        files: {path}/_.snippets
+
+                                                        *olppet-vscode-parser*
+VSCodeParser
+        Parser for Visual Studio Code style snippets.
+        https://code.visualstudio.com/docs/editor/userdefinedsnippets
+
+        type: "VSCode"
+        extension: "json"
+        files: {path}/*.code-snippets
+
 
 ==============================================================================
 COMPLETION                                                 *olppet-completion*
 
 Olppet.vim supports ddc.vim.
 >
-        call ddc#custom#patch_global('sources', ['olppet'])
-        call ddc#custom#patch_global('sourceOptions', {
-            \   '_': {
-            \     'matchers': ['matcher_head'],
-            \     'sorters': ['sorter_rank']
-            \   },
-            \   'olppet': {
-            \     'mark': 'olppet',
-            \   },
-            \ })
+    call ddc#custom#patch_global('sources', ['olppet'])
+    call ddc#custom#patch_global('sourceOptions', {
+        \   '_': {
+        \     'matchers': ['matcher_head'],
+        \     'sorters': ['sorter_rank']
+        \   },
+        \   'olppet': {
+        \     'mark': 'olppet',
+        \   },
+        \ })
 <
 
 vim:tw=78:ts=8:ft=help:norl:

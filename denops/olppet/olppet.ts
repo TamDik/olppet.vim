@@ -1,5 +1,16 @@
-import { Denops, option, expandGlob, helper, variable, JSONC } from './deps.ts';
-import { bytes, subbytes } from './util.ts';
+import {
+    Denops,
+    JSONC,
+    expandGlob,
+    helper,
+    option,
+    path,
+    variable,
+} from './deps.ts';
+import {
+    bytes,
+    subbytes,
+} from './util.ts';
 
 
 class SnippetManager {
@@ -16,16 +27,22 @@ class SnippetManager {
     }
 
     public async addPathOrRepoName(denops: Denops, parserName: string, pathOrRepoName: string, subdirectory?: string): Promise<void> {
+        const add_directory = (basePath: string, subdirectory: string | undefined) => {
+            if (subdirectory) {
+                this.parsers[parserName].directories.push(path.join(basePath, subdirectory));
+            } else {
+                this.parsers[parserName].directories.push(basePath);
+            }
+        };
+
         const runtimepath = await option.runtimepath.getGlobal(denops);
         for (const path of runtimepath.split(',')) {
-            if (path.endsWith('/' + pathOrRepoName)) {
-                const directory = path + (subdirectory ? `/${subdirectory}` : '');
-                this.parsers[parserName].directories.push(directory);
+            if (path.endsWith(pathOrRepoName)) {
+                add_directory(path, subdirectory);
                 return;
             }
         }
-        const directory = pathOrRepoName + (subdirectory ? `/${subdirectory}` : '');
-        this.parsers[parserName].directories.push(directory);
+        add_directory(pathOrRepoName, subdirectory);
     }
 
     public async getSnippets(filetype: string): Promise<Snippet[]> {
@@ -579,7 +596,7 @@ abstract class ParserBase implements Parser {
 class SnipMateParser extends ParserBase {
     public async fetchSnippetsFiles(filetype: string, directory: string): Promise<Set<string>> {
         const filepaths = await super.fetchSnippetsFiles(filetype, directory);
-        filepaths.add(`${directory}/_.snippets`);
+        filepaths.add(path.join(directory, '_.snippets'));
         return filepaths;
     }
 
@@ -597,7 +614,7 @@ class SnipMateParser extends ParserBase {
         const {blocks, extendScopes} = this.splitBlock(text);
         const snippets = blocks.map(block => this.parseBlock(block));
         const extendsFilepaths: string[] = [];
-        const directory = (filepath.replace(/\/snippets\/.*?$/, ''));
+        const directory = path.dirname(filepath);
         for (const scope of extendScopes) {
             extendsFilepaths.push(...await this.fetchSnippetsFiles(scope, directory));
         }

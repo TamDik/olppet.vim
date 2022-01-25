@@ -9,6 +9,7 @@ export {
     isString,
 } from "https://deno.land/x/unknownutil@v1.1.4/mod.ts";
 export { expandGlob } from "https://deno.land/std@0.122.0/fs/mod.ts";
+export * as path from "https://deno.land/std@0.122.0/path/mod.ts";
 export { BaseSource } from "https://deno.land/x/ddc_vim@v1.2.0/types.ts";
 export type {
     Candidate,

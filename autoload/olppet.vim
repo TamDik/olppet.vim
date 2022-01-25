@@ -30,7 +30,6 @@ endfunction
 
 
 function! olppet#register_snippet(name, type, ...) abort
-  let s:subdirectory = get(a:000, 0, v:null)
   call s:notify('registerSnippet', [a:name, a:type, get(a:000, 0, v:null)])
 endfunction
 

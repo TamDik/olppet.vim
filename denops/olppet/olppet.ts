@@ -46,6 +46,7 @@ class SnippetManager {
                 if (this.filetypes[filetype].parsedDirectories.has(directory)) {
                     continue;
                 }
+                this.filetypes[filetype].parsedDirectories.add(directory);
                 for (const filepath of await parser.fetchSnippetsFiles(filetype, directory)) {
                     await this.parseSnippet(parserName, filetype, filepath);
                 }

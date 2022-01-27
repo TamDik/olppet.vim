@@ -169,7 +169,21 @@ export class Olppet {
                 lnum: line,
                 col: col - bytes(matched.trigger),
             },
-            tabstops: matched.getAllTabStopTokens().map(token => ({
+            tabstops: matched.getAllTabStopTokens()
+            .sort((token1, token2) => {
+                if (token1 instanceof TerminalToken) {
+                    return 1;
+                }
+                if (token2 instanceof TerminalToken) {
+                    return -1;
+                }
+                if (token1.tokenId < token2.tokenId) {
+                    return -1;
+                } else {
+                    return 1;
+                }
+            })
+            .map(token => ({
                 token, text: null,
                 start: {lnum: 0, col: 0},
                 end: {lnum: 0, col: 0},
@@ -467,12 +481,8 @@ class TabStopToken extends SnippetToken {
 
 
 class TerminalToken extends TabStopToken {
-    constructor() {
-        super('.', []);
-    }
-
-    public toText(_denops: Denops, _current: CurrentSnippet): Promise<string> {
-        return Promise.resolve('');
+    constructor(placeholder: SnippetToken[]) {
+        super('.', placeholder);
     }
 }
 
@@ -719,8 +729,13 @@ class SnipMateParser extends ParserBase {
             } else {
                 const match = tokenText.match(/^\$\{([^:]*)(?::(.*))?\}$/) as RegExpMatchArray;
                 const tabstopId = match[1];
+                const placeholderText = match[2];
                 if (tabstopId === '0') {
-                    tokens.push(new TerminalToken());
+                    const placeholder: SnippetToken[] = [];
+                    if (placeholderText) {
+                        placeholder.push(...this.tokenizeText(placeholderText));
+                    }
+                    tokens.push(new TerminalToken(placeholder));
                     continue;
                 }
                 if (!tabstops.has(tabstopId)) {
@@ -853,7 +868,7 @@ class VSCodeParser extends ParserBase {
 
             const tokeId = tokenText.replace(/^\D*/, '').replace(/(?<=^\d*)\D.*$/, '');
             if (tokeId === '0') {
-                tokens.push(new TerminalToken());
+                tokens.push(new TerminalToken([]));
                 continue;
             }
 

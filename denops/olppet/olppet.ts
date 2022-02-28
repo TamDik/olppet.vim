@@ -643,7 +643,8 @@ class SnipMateParser extends ParserBase {
                 continue;
             }
             if (line.match(/^ *extends/)) {
-                extendScopes.push(line.replace(/ *extends\s*/, ''));
+                const extendsText = line.replace(/ *extends\s*/, '');
+                extendScopes.push(...extendsText.split(/ *, */g));
                 continue;
             }
             if (line.match(/^ *include/)) {

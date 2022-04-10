@@ -89,9 +89,9 @@ class SnippetManager {
 
 
 type CurrentSnippet = {
-    snippet: Snippet,
     head: string,
     tail: string,
+    snippetLines: SnippetToken[][],
     lines: string[],
     prevLines: string[],
     scripts: Record<string, {token: VimToken, value: string | null}>,
@@ -159,9 +159,9 @@ export class Olppet {
         }
 
         this.current = {
-            snippet: matched,
             head: head.substring(0, head.length - matched.trigger.length),
             tail: subbytes(currentLine, col - 1),
+            snippetLines: matched.lines,
             lines: [],
             prevLines: [],
             scripts: {},
@@ -169,21 +169,7 @@ export class Olppet {
                 lnum: line,
                 col: col - bytes(matched.trigger),
             },
-            tabstops: matched.getAllTabStopTokens()
-            .sort((token1, token2) => {
-                if (token1 instanceof TerminalToken) {
-                    return 1;
-                }
-                if (token2 instanceof TerminalToken) {
-                    return -1;
-                }
-                if (token1.tokenId < token2.tokenId) {
-                    return -1;
-                } else {
-                    return 1;
-                }
-            })
-            .map(token => ({
+            tabstops: matched.getAllTabStopTokens().map(token => ({
                 token, text: null,
                 start: {lnum: 0, col: 0},
                 end: {lnum: 0, col: 0},
@@ -231,15 +217,15 @@ export class Olppet {
             return;
         }
         this.current.lines.length = 0;
-        for (let i = 0, len = this.current.snippet.lines.length; i < len; i++) {
-            const snippetLine = this.current.snippet.lines[i];
+        for (let i = 0, len = this.current.snippetLines.length; i < len; i++) {
+            const snippetLine = this.current.snippetLines[i];
             let line = '';
             if (i === 0) {
                 line += this.current.head;
             } else {
                 line += ' '.repeat(bytes(this.current.head));
             }
-            for (const token of snippetLine.tokens) {
+            for (const token of snippetLine) {
                 const tokenText = await token.toText(denops, this.current);
                 if (token instanceof TabStopToken) {
                     for (const tabstop of this.current.tabstops) {
@@ -403,7 +389,7 @@ class Snippet {
     public readonly pattern: RegExp;
     constructor(public readonly trigger: string,
                 public readonly description: string | null,
-                public lines: SnippetLine[]) {
+                public lines: SnippetToken[][]) {
         const escapedTrigger = this.trigger.replace(/[.*+?^=!:${}()|[\]\/\\]/g, '\\$&');
         this.pattern = new RegExp('(?<!\\w)' + escapedTrigger + '$');
     }
@@ -411,25 +397,25 @@ class Snippet {
     public getAllTabStopTokens(): TabStopToken[] {
         const tokens: TabStopToken[] = [];
         for (const line of this.lines) {
-            tokens.push(...line.getAllTabStopTokens());
-        }
-        return tokens;
-    }
-}
-
-
-class SnippetLine {
-    constructor(public readonly tokens: SnippetToken[]) {
-    }
-
-    public getAllTabStopTokens(): TabStopToken[] {
-        const tokens: TabStopToken[] = [];
-        for (const token of this.tokens) {
-            if (token instanceof TabStopToken) {
-                tokens.push(token);
+            for (const token of line) {
+                if (token instanceof TabStopToken) {
+                    tokens.push(token);
+                }
             }
         }
-        return tokens;
+        return tokens.sort((token1, token2) => {
+            if (token1 instanceof TerminalToken) {
+                return 1;
+            }
+            if (token2 instanceof TerminalToken) {
+                return -1;
+            }
+            if (token1.tokenId < token2.tokenId) {
+                return -1;
+            } else {
+                return 1;
+            }
+        })
     }
 }
 
@@ -693,7 +679,7 @@ class SnipMateParser extends ParserBase {
     private parseBlock(snippetBlock: string): Snippet {
         const [head, ...body] = snippetBlock.split(/\n/);
         const trigger = head.match(/(?<=^snippet\s+)\S+/) as RegExpMatchArray;
-        const lines: SnippetLine[] = [];
+        const lines: SnippetToken[][] = [];
         const tabstops: Set<string> = new Set();
         for (const line of body) {
             lines.push(this.parseLine(line, tabstops));
@@ -707,7 +693,7 @@ class SnipMateParser extends ParserBase {
         }
     }
 
-    private parseLine(line: string, tabstops: Set<string>): SnippetLine {
+    private parseLine(line: string, tabstops: Set<string>): SnippetToken[] {
         const tokens: SnippetToken[] = [];
         const indentMatch = line.match(/^(\t*)(.*)$/) as RegExpMatchArray;
         const text = indentMatch[2];
@@ -716,7 +702,7 @@ class SnipMateParser extends ParserBase {
             tokens.push(new IndentToken());
         }
         tokens.push(...this.tokenize(text, tabstops));
-        return new SnippetLine(tokens);
+        return tokens;
     }
 
     private tokenize(text: string, tabstops: Set<string>): SnippetToken[] {
@@ -837,8 +823,8 @@ class VSCodeParser extends ParserBase {
         return arg;
     }
 
-    private parseBody(lines: string[]): SnippetLine[] {
-        const snippetLines: SnippetLine[] = [];
+    private parseBody(lines: string[]): SnippetToken[][] {
+        const snippetLines: SnippetToken[][] = [];
         const tabstops: Set<string> = new Set();
         for (const line of lines) {
             for (const line2 of line.split('\n')) {
@@ -850,7 +836,7 @@ class VSCodeParser extends ParserBase {
                     tokens.push(new IndentToken());
                 }
                 tokens.push(...this.tokenize(text, tabstops));
-                snippetLines.push(new SnippetLine(tokens));
+                snippetLines.push(tokens);
             }
         }
         return snippetLines;

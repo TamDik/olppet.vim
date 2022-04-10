@@ -98,6 +98,7 @@ type CurrentSnippet = {
     entoryPoint: {lnum: number, col: number},
     tabstops: CurrentSnippetTabStops[],
     focus: CurrentSnippetTabStops | null,
+    terminal: CurrentSnippetTabStops | null,
 };
 
 
@@ -175,9 +176,16 @@ export class Olppet {
                 end: {lnum: 0, col: 0},
             })),
             focus: null,
+            terminal: null,
         };
         if (this.current.tabstops.length !== 0) {
             this.current.focus = this.current.tabstops[0];
+        }
+        for (const tabstop of this.current.tabstops) {
+            if (tabstop.token.isTerminal()) {
+                this.current.terminal = tabstop;
+                break;
+            }
         }
 
         await this.updateCurrentSnippetLines(denops);
@@ -206,7 +214,7 @@ export class Olppet {
         } else {
             await this.jumpToFocus(denops);
         }
-        if (this.current.focus === null || this.current.focus.token instanceof TerminalToken) {
+        if (this.current.focus === null || this.current.focus === this.current.terminal) {
             this.leaveSnippet();
         }
         return true;
@@ -318,7 +326,7 @@ export class Olppet {
         this.current.focus = this.current.tabstops[nextForcusI];
         await this.updateLines(denops);
         await this.jumpToFocus(denops);
-        if (this.current.focus && this.current.focus.token instanceof TerminalToken) {
+        if (this.current.terminal && this.current.focus === this.current.terminal) {
             this.leaveSnippet();
         }
         return true;
@@ -344,7 +352,7 @@ export class Olppet {
         this.current.focus = this.current.tabstops[nextForcusI];
         await this.updateLines(denops);
         await this.jumpToFocus(denops);
-        if (this.current.focus && this.current.focus.token instanceof TerminalToken) {
+        if (this.current.terminal && this.current.focus === this.current.terminal) {
             this.leaveSnippet();
         }
         return true;
@@ -404,10 +412,10 @@ class Snippet {
             }
         }
         return tokens.sort((token1, token2) => {
-            if (token1 instanceof TerminalToken) {
+            if (token1.isTerminal()) {
                 return 1;
             }
-            if (token2 instanceof TerminalToken) {
+            if (token2.isTerminal()) {
                 return -1;
             }
             if (token1.tokenId < token2.tokenId) {
@@ -463,12 +471,9 @@ class TabStopToken extends SnippetToken {
         }
         return placeholder;
     }
-}
 
-
-class TerminalToken extends TabStopToken {
-    constructor(placeholder: SnippetToken[]) {
-        super('.', placeholder);
+    public isTerminal(): boolean {
+        return this.tokenId === '0';
     }
 }
 
@@ -722,7 +727,7 @@ class SnipMateParser extends ParserBase {
                     if (placeholderText) {
                         placeholder.push(...this.tokenizeText(placeholderText));
                     }
-                    tokens.push(new TerminalToken(placeholder));
+                    tokens.push(new TabStopToken('0', placeholder));
                     continue;
                 }
                 if (!tabstops.has(tabstopId)) {
@@ -855,7 +860,7 @@ class VSCodeParser extends ParserBase {
 
             const tokeId = tokenText.replace(/^\D*/, '').replace(/(?<=^\d*)\D.*$/, '');
             if (tokeId === '0') {
-                tokens.push(new TerminalToken([]));
+                tokens.push(new TabStopToken('0', []));
                 continue;
             }
 

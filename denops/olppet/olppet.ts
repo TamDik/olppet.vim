@@ -205,8 +205,12 @@ export class Olppet {
         }
         for (const scriptId in this.current.scripts) {
             const {token} = this.current.scripts[scriptId];
-            await helper.execute(denops, `let g:_olppet_temp = ${token.script}`);
-            this.current.scripts[scriptId].value = await variable.globals.get(denops, '_olppet_temp');
+            try {
+                await helper.execute(denops, `let g:_olppet_temp = ${token.script}`);
+                this.current.scripts[scriptId].value = await variable.globals.get(denops, '_olppet_temp');
+            } catch (_) {
+                console.error(`Failed to execute "${token.script}" while expanding "${matched.trigger}".`);
+            }
         }
         await this.updateLines(denops);
         if (this.current.focus === null) {

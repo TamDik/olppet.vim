@@ -617,7 +617,14 @@ class SnipMateParser extends ParserBase {
             return {snippets: [], extendsFilepaths: []};
         }
         const {blocks, extendScopes} = this.splitBlock(text);
-        const snippets = blocks.map(block => this.parseBlock(block));
+        const snippets = blocks.map(block => {
+            const snippet = this.parseBlock(block);
+            const hasTerminal = snippet.getAllTabStopTokens().find(tabstop => tabstop.isTerminal()) !== undefined;
+            if (!hasTerminal) {
+                snippet.lines[snippet.lines.length - 1].push(new TabStopToken('0', []));
+            }
+            return snippet;
+        });
         const extendsFilepaths: string[] = [];
         const directory = path.dirname(filepath);
         for (const scope of extendScopes) {
